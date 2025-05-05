@@ -109,7 +109,7 @@ heatseek/
 
 ---
 
-## 📃 License
+## License
 
 MIT License
 
