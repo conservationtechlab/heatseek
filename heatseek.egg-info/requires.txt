@@ -1,6 +1,0 @@
-roboflow>=1.0
-ultralytics>=8.0
-opencv-python
-torch
-tqdm
-pyyaml
