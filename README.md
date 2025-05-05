@@ -1,10 +1,11 @@
 # HeatSeek
 
 **HeatSeek** is a command-line tool for downloading thermal datasets, preprocessing video, training YOLO models, and tracking objects in thermal imagery. The current focus of the package is on thermal imagery of bats.
-![Optical Flow](images/OpticalFlow_Example.png)
 
-
-![PB Example](images/PB_Example.png)
+<p align="center">
+  <img src="images/OpticalFlow_Example.png" alt="Optical Flow" width="400"/>
+  <img src="images/PB_Example.png" alt="PB Example" width="400"/>
+</p>
 ## Installation
 
 First, clone the repository:
