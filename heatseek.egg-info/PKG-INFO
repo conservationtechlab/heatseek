@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: heatseek
+Version: 0.1.0
+Author: Your Name
+Requires-Dist: roboflow>=1.0
+Requires-Dist: ultralytics>=8.0
+Requires-Dist: opencv-python
+Requires-Dist: torch
+Requires-Dist: tqdm
+Requires-Dist: pyyaml
+Dynamic: author
+Dynamic: requires-dist
