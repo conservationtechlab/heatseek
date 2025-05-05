@@ -32,24 +32,6 @@ pip install -e . --no-build-isolation
 
 ## Usage
 
-After installation, use the `heatseek` CLI:
-
-### Download Dataset
-
-```bash
-heatseek download \
-  --api-key YOUR_API_KEY \
-  --workspace your_workspace \
-  --project your_project \
-  --version 1 \
-  --nc 3 \
-  --names hot_bat cold_bat other
-```
-
-This downloads data from Weights & Biases and writes a `data.yaml`.
-
----
-
 ### Train YOLO Model
 
 ```bash
@@ -106,14 +88,12 @@ Runs background reduction then tracking in one go.
 
 ## Dependencies
 
-Ensure you have the following installed (or install via `requirements.txt` if provided):
+Ensure you have the following installed via:
 
-- `torch`
-- `opencv-python`
-- `argparse`
-- `wandb`
-- `ultralytics` (if using YOLOv8)
 
+```bash
+pip install -r requirements.txt
+```
 ---
 
 ## Project Structure
