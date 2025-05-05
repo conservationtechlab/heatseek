@@ -32,6 +32,12 @@ pip install -e . --no-build-isolation
 
 ## Usage
 
+### Download Weights if Necassary
+
+```bash
+heatseek getweights --output model.pt
+```
+
 ### Train YOLO Model
 
 ```bash
