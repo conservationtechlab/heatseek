@@ -65,9 +65,7 @@ def main():
     track.add_argument("--weights", required=True, help="Weights for detection")
 
     # pretrack
-    pretrack = subs.add_parser(
-        "pretrack", help="Preprocess (bg-reduce) then detect+track"
-    )
+    pretrack = subs.add_parser("pretrack", help="Preprocess (bg-reduce) then detect+track")
     pretrack.add_argument("--input", required=True, help="Input video path")
     pretrack.add_argument(
         "--preprocessed", required=True, help="Where to dump preprocessed video"
@@ -75,7 +73,9 @@ def main():
     pretrack.add_argument("--output", required=True, help="Output path for tracking")
     pretrack.add_argument("--weights", required=True, help="Weights for detection")
     pretrack.add_argument(
-        "--thresh", type=float, default=3.0, help="Motion threshold for pretracking"
+        "--config",
+        default="heatseek/config/preproc_config.yaml",
+        help="YAML config for optical-flow thresholds",
     )
 
     args = parser.parse_args()

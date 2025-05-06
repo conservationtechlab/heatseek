@@ -4,7 +4,7 @@ from tqdm import tqdm
 import yaml
 
 
-def reduce_background(in_path: str, out_path: str, yaml_path: str):
+def reduce_background(in_path: str, out_path: str, yaml_path: str = "heatseek/config/preproc_config.yaml"):
     """
     Optical flow background reduction using parameters from a YAML config.
 

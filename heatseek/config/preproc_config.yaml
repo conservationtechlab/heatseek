@@ -1,5 +1,5 @@
 # preproc_config.yaml
-motion_thresh: 0.75
+motion_thresh: 2.75
 flow_params:
   pyr_scale: 0.5
   levels: 3
