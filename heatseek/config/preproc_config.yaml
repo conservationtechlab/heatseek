@@ -1,0 +1,9 @@
+# preproc_config.yaml
+motion_thresh: 0.75
+flow_params:
+  pyr_scale: 0.5
+  levels: 3
+  winsize: 1
+  iterations: 3
+  poly_n: 3
+  poly_sigma: 1.2

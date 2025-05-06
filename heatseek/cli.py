@@ -45,7 +45,7 @@ def main():
     v = sub.add_parser("preprocess")
     v.add_argument("--input", required=True)
     v.add_argument("--output", required=True)
-    v.add_argument("--thresh", type=float, default=3.0)
+    v.add_argument("--config", default="heatseek/config/preproc_config.yaml")
 
     g = sub.add_parser("pretrack")
     g.add_argument("--input", required=True)
@@ -69,7 +69,7 @@ def main():
               args.batch, args.imgsz)
 
     elif args.cmd == "preprocess":
-        reduce_background(args.input, args.output, args.thresh)
+        reduce_background(args.input, args.output, args.config)
 
     elif args.cmd == "track":
         detect_and_track(args.input, args.output, args.weights)
@@ -85,4 +85,5 @@ def main():
         print(f"Weights saved to {args.output}")
 
 if __name__ == "__main__":
+    
     main()
