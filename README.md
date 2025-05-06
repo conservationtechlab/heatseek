@@ -35,7 +35,17 @@ pip install -e . --no-build-isolation
 ### Download Weights if Necassary
 
 ```bash
-heatseek getweights --output model.pt
+heatseek train \
+  --data-yaml path/to/data.yaml \
+  --weights yolov8s.pt \
+  --epochs 400 \
+  --batch 16 \
+  --imgsz 640
+```
+### Download dataset from RoboFlow
+
+```bash
+heatseek  download   --api-key API_KEY   --workspace WORKSPACE  --project PROJECT_NAME   --version VERSION_NUM   --nc CLASS_NUM   --names CLASS_NAME
 ```
 
 ### Train YOLO Model
@@ -43,7 +53,7 @@ heatseek getweights --output model.pt
 ```bash
 heatseek train \
   --data-yaml path/to/data.yaml \
-  --weights yolov8s.pt \
+  --weights yolov11s.pt \
   --epochs 400 \
   --batch 16 \
   --imgsz 640

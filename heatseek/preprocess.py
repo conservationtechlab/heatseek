@@ -57,8 +57,24 @@ def reduce_background(in_path: str, out_path: str, yaml_path: str):
         mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
 
         mask = (mag > motion_thresh).astype(np.uint8) * 255
+        #kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3)) 
+        #mask = cv2.erode(mask, kernel, iterations=1)  
+        dist = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
+        mask = (dist > 1.5).astype(np.uint8) * 255
         mask_color = cv2.merge([mask, mask, mask])
+        masked_pixels = np.count_nonzero(mask)      
+        total_pixels   = mask.shape[0] * mask.shape[1]
+        mask_ratio     = masked_pixels / total_pixels
+        #print(f"Mask covers {mask_ratio*100:.1f}% of the frame")
 
+        radius = 3.5                                   # px
+        area_per_bat = np.pi * (radius**2)          # ~50.3 px²
+        est_bats     = masked_pixels / area_per_bat
+        #print(f"≈{est_bats:.1f} ")
+
+        # if you want an integer:
+        num_bats = int(round(est_bats))
+        #print(f"Estimated bat count: {num_bats}")
         fg = cv2.bitwise_and(frame, mask_color)
         out.write(fg)
 
@@ -66,4 +82,5 @@ def reduce_background(in_path: str, out_path: str, yaml_path: str):
 
     cap.release()
     out.release()
+    
     print(f"[video_preproc] saved → {out_path}")
