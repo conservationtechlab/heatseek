@@ -5,7 +5,7 @@ import argparse
 
 annotations = {}
 current_points = []
-
+#TODO add save folder path
 def click_event(event, x, y, flags, param):
     global current_points
     if event == cv2.EVENT_LBUTTONDOWN:
