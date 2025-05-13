@@ -114,7 +114,7 @@ heatseek annotate \
 Click to annotate points for density data. Press 's' to save and 'n' to skip
 
 <p align="center">
-  <img src="images/densityAnnotator.png" alt="Density Annotator" width="400"/>
+  <img src="images/densityAnnotator.png" alt="Density Annotator"/>
 </p>
 
 
