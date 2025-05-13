@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 setup(
     name="heatseek",
     version="0.1.0",
-    author="Your Name",
+    author="Mani Amani",
     packages=find_packages(),
     install_requires=[
         "roboflow>=1.0",

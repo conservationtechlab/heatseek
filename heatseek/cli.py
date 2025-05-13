@@ -7,7 +7,7 @@ from .data_utils import download_dataset, write_data_yaml
 from .train import train
 from .preprocess import reduce_background
 from .detect_track import detect_and_track
-
+from .density_annotator import annotate_folder
 def main():
     parser = argparse.ArgumentParser(prog="heatseek")
     subs = parser.add_subparsers(dest="cmd", required=True)
@@ -64,6 +64,10 @@ def main():
     track.add_argument("--output", required=True, help="Output path for results")
     track.add_argument("--weights", required=True, help="Weights for detection")
 
+    # annotator
+    annot = subs.add_parser("annotate", help="Annotate a video with detections")
+    annot.add_argument("--folder", required=True, help="Input folder path")
+
     # pretrack
     pretrack = subs.add_parser("pretrack", help="Preprocess (bg-reduce) then detect+track")
     pretrack.add_argument("--input", required=True, help="Input video path")
@@ -114,6 +118,9 @@ def main():
     elif args.cmd == "pretrack":
         reduce_background(args.input, args.preprocessed, args.config)
         detect_and_track(args.preprocessed, args.output, args.weights)
+    elif args.cmd == "annotate":
+        annotate_folder(args.folder, "annotations.json")
+        
 
 if __name__ == "__main__":
     main()
