@@ -102,6 +102,27 @@ Runs background reduction then tracking in one go.
 
 ---
 
+---
+
+### Density Annotator
+
+```bash
+heatseek annotate \
+  --input raw.mp4 /path/to/data/folder\
+```
+
+Click to annotate points for density data. Press 's' to save and 'n' to skip
+
+<p align="center">
+  <img src="images/densityAnnotator.png" alt="Density Annotator" width="400"/>
+</p>
+
+
+Creates annotations of density data to train density count estimator models. 
+
+---
+
+
 ## Dependencies
 
 Ensure you have the following installed via:

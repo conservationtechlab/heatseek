@@ -66,7 +66,7 @@ def main():
 
     # annotator
     annot = subs.add_parser("annotate", help="Annotate a video with detections")
-    annot.add_argument("--folder", required=True, help="Input folder path")
+    annot.add_argument("--folder", required=True, help="Input folder path") #TODO add save folder path
 
     # pretrack
     pretrack = subs.add_parser("pretrack", help="Preprocess (bg-reduce) then detect+track")
@@ -120,7 +120,7 @@ def main():
         detect_and_track(args.preprocessed, args.output, args.weights)
     elif args.cmd == "annotate":
         annotate_folder(args.folder, "annotations.json")
-        
+
 
 if __name__ == "__main__":
     main()
