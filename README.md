@@ -145,7 +145,12 @@ heatseek/
 ```
 
 ---
+## Acknowledgements
 
+Example images and datasets:
+https://universe.roboflow.com/goingbatty/
+
+---
 ## License
 
 MIT License
