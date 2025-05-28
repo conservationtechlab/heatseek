@@ -70,8 +70,7 @@ heatseek train \
 ```bash
 heatseek preprocess \
   --input raw_video.mp4 \
-  --output bg_reduced.mp4 \
-  --thresh 3.0
+  --output bg_reduced.mp4 
 ```
 
 Removes background using thermal contrast thresholding.
@@ -98,8 +97,7 @@ heatseek pretrack \
   --input raw.mp4 \
   --preprocessed bg_reduced.mp4 \
   --output tracks.json \
-  --weights yolov8.pt \
-  --thresh 3.0
+  --weights yolov8.pt 
 ```
 
 Runs background reduction then tracking in one go.
