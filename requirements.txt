@@ -1,8 +1,11 @@
-numpy==1.26.4
-opencv_python==4.10.0.84
-PyYAML==6.0.1
-roboflow==1.1.61
-setuptools==80.3.1
-torch==2.5.1+cu118
-tqdm==4.66.5
-ultralytics==8.3.28
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch==2.6.0+cu118
+torchvision==0.21+cu118
+torchaudio==2.6.0+cu118
+numpy
+opencv-python
+PyYAML
+roboflow
+setuptools
+tqdm
+ultralytics
