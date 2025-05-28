@@ -3,3 +3,7 @@ TODOs:
 Implement Gaussian Kernel to get Density estimates. 
 Implement U-Net to get counts
 Try different settings; it might be easier to begin with the owl dataset.
+
+-- Each dot needs to be a gaussian kernel then all densities need to be normalized that the sum equals to the true count
+Then train a regression model to estimate the count based on the density map:
+https://arxiv.org/abs/1907.02724
