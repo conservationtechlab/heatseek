@@ -15,7 +15,11 @@ First, clone the repository:
 git clone ...
 cd heatseek
 ```
+It is recommended to build a conda environment for correct dependencies:
 
+```bash
+conda env create -f environment.yml
+```
 Then install the package:
 
 ```bash
