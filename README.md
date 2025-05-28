@@ -96,7 +96,7 @@ Runs YOLO-based detection and object tracking.
 heatseek pretrack \
   --input raw.mp4 \
   --preprocessed bg_reduced.mp4 \
-  --output tracks.json \
+  --output tracks.mp4 \
   --weights yolov8.pt 
 ```
 
