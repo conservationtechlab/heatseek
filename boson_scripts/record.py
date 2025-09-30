@@ -1,12 +1,35 @@
-import cv2
-import numpy as np
-from SDK_USER_PERMISSIONS import *
+'''
+This script records radiometric data from the FLIR Boson thermal camera
+
+Usage:
+    $ python record.py \
+         --raw_output_path path/to/save/raw/data.npy \
+         --video_output_path path/to/save/video/data.mp4 \
+         --bosonsdk_path path/to/boson/sdk/files
+'''
+
+
 from time import sleep
 import argparse
+import sys
+import os
+import numpy as np
+import cv2
 
 # setup camera parameters
 def setup(func, *args, delay=1, success_code=0, description=''):
-    '''run camera setup fucntion until it succeeds'''
+    '''run camera setup fucntion until it succeeds
+
+    Args:
+        func: function to update camera parameter
+        *args: args for func
+        delay (int): delay before trying again
+        success_code (int): success code returned from func
+        description (str): name of setting
+
+    Returns:
+        None
+    '''
 
     result = func(*args)
     while result != success_code:
@@ -14,19 +37,26 @@ def setup(func, *args, delay=1, success_code=0, description=''):
         result = func(*args)
     print(f'{description} Set')
 
-def get_center_temp(frame):
-    '''get frame center temp in C and F'''
 
-    center_raw = frame[int(frame.shape[0]/2), int(frame.shape[1]/2)]
+def get_center_temp(frame_16bit):
+    '''get frame center temp in C and F
+
+    Args:
+        frame_16bit: raw radiometric 16bit frame
+
+    Returns:
+        center_c: center temperature in Celsius
+        center_f: center temperature in Fahrenheit
+    '''
+
+    center_raw = frame_16bit[int(frame_16bit.shape[0]/2), int(frame_16bit.shape[1]/2)]
     center_c = round((center_raw/100) - 273, 1)
     center_f = round(center_c * 9/5 + 32, 1)
 
     return center_c, center_f
 
-if __name__ == "__main__":
 
-    # Connect to Camera
-    myCam = CamAPI.pyClient(manualport="/dev/ttyACM0") #Boson COM port on windows, check device manager
+if __name__ == "__main__":
 
     # User set parameters
     parser = argparse.ArgumentParser()
@@ -36,7 +66,18 @@ if __name__ == "__main__":
     parser.add_argument('--video_output_path',
                         default='output.mp4',
                         help='filepath to save normalized video output')
+    parser.add_argument('--bosonsdk_path',
+                        default='~/BosonSDK/SDK_USER_PERMISSIONS',
+                        help='filepath for Boson SDK')
     args = parser.parse_args()
+
+    # import Boson SDK
+    sdk_path = os.path.expanduser(args.bosonsdk_path)
+    sys.path.append(sdk_path)
+    from SDK_USER_PERMISSIONS import *
+
+    # Connect to Camera
+    myCam = CamAPI.pyClient(manualport="/dev/ttyACM0")
 
     # Set Radiometric Parameters
     setup(myCam.bosonSetGainMode,
@@ -57,13 +98,12 @@ if __name__ == "__main__":
     setup(myCam.bosonRunFFC,
           description='Flat Field Correction')
 
-    #open camera
+    # open camera
     cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 256)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
     cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)     # don't auto-convert to RGB
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('Y','1', '6', ' '))
-
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('Y', '1', '6', ' '))
 
     # output video settings
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -82,7 +122,7 @@ if __name__ == "__main__":
 
         # Viewable Window
         min_val, max_val = np.min(frame), np.max(frame)
-        frame_8bit = ((frame-min_val)/(max_val-min_val) *255).astype(np.uint8)
+        frame_8bit = ((frame - min_val)/(max_val - min_val) * 255).astype(np.uint8)
         frame_color = cv2.applyColorMap(frame_8bit, cv2.COLORMAP_INFERNO)
         writer.write(frame_color)
 
@@ -91,7 +131,7 @@ if __name__ == "__main__":
         print(f'Center temp: Temp C - {temp_c} | Temp F - {temp_f}')
 
         cv2.imshow('color', frame_color)
-        if cv2.waitKey(1)==ord('q'):
+        if cv2.waitKey(1) == ord('q'):
             print(f'recording saved at {args.video_output_path}')
             break
 
@@ -102,4 +142,3 @@ if __name__ == "__main__":
     writer.release()
 
     myCam.Close()
-
