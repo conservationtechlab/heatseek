@@ -122,15 +122,16 @@ if __name__ == "__main__":
 
         # Viewable Window
         min_val, max_val = np.min(frame), np.max(frame)
-        frame_8bit = ((frame - min_val)/(max_val - min_val) * 255).astype(np.uint8)
+        frame_8bit = cv2.normalize(frame, None, 0, 255, norm_type=cv2.NORM_MINMAX).astype(np.uint8)
         frame_color = cv2.applyColorMap(frame_8bit, cv2.COLORMAP_INFERNO)
         writer.write(frame_color)
+        cv2.imshow('color', frame_color)
 
-        # Center Temp
+        # Display Center Temp
         temp_c, temp_f = get_center_temp(frame)
         print(f'Center temp: Temp C - {temp_c} | Temp F - {temp_f}')
 
-        cv2.imshow('color', frame_color)
+        # Stop Recording
         if cv2.waitKey(1) == ord('q'):
             print(f'recording saved at {args.video_output_path}')
             break
