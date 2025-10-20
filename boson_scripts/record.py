@@ -32,11 +32,12 @@ def setup(func, *args, delay=2, success_code=0, description=''):
         None
     '''
 
+    print(f'\nSetting {description}...')
     result = func(*args)
     while result != success_code:
         sleep(delay)
         result = func(*args)
-    print(f'{description} Set')
+    print(f'Success!')
 
 
 def get_center_temp(frame_16bit):
@@ -113,7 +114,7 @@ if __name__ == "__main__":
     headless = not os.environ.get("DISPLAY")
 
     raw_frames = []
-    print('recording...')
+    print('\n\nRecording Started...')
 
     try:
         while True:
@@ -134,23 +135,20 @@ if __name__ == "__main__":
 
             # Display Center Temp
             temp_c, temp_f = get_center_temp(frame)
-            print(f'Center temp: Temp C - {temp_c} | Temp F - {temp_f}')
+            sys.stdout.write(f'\rCenter temp: Temp C - {temp_c} | Temp F - {temp_f}')
+            sys.stdout.flush()
 
-            # Stop Recording
-            #if cv2.waitKey(1) == ord('q'):
-            #    print(f'recording saved at {args.video_output_path}')
-            #    break
 
     except KeyboardInterrupt:
-        print('Stopping Recording...')
+        print('\n\nRecording Stopped...')
 
     finally:
         raw_frames = np.stack(raw_frames, axis=0)
         np.save(args.raw_output_path, raw_frames)
 
-        print('Recordings Saved')
+        print('\nRecordings Saved')
         print(f'Radiometric data: {args.raw_output_path}')
-        print(f'Normalized video: {args.video_output_path}')
+        print(f'Normalized video: {args.video_output_path}\n\n')
 
         cap.release()
         writer.release()
