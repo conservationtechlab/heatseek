@@ -108,6 +108,7 @@ if __name__ == "__main__":
     # output video settings
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     writer = cv2.VideoWriter(args.video_output_path, fourcc, 30, (320, 256))
+    headless = not os.environ.get("DISPLAY")
 
     raw_frames = []
     print('recording...')
@@ -125,7 +126,8 @@ if __name__ == "__main__":
         frame_8bit = cv2.normalize(frame, None, 0, 255, norm_type=cv2.NORM_MINMAX).astype(np.uint8)
         frame_color = cv2.applyColorMap(frame_8bit, cv2.COLORMAP_INFERNO)
         writer.write(frame_color)
-        cv2.imshow('color', frame_color)
+        if not headless:
+            cv2.imshow('color', frame_color)
 
         # Display Center Temp
         temp_c, temp_f = get_center_temp(frame)
@@ -141,5 +143,7 @@ if __name__ == "__main__":
 
     cap.release()
     writer.release()
+    if not headless:
+        cv2.destroyAllWindows()
 
     myCam.Close()
