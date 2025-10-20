@@ -17,7 +17,7 @@ import numpy as np
 import cv2
 
 # setup camera parameters
-def setup(func, *args, delay=1, success_code=0, description=''):
+def setup(func, *args, delay=2, success_code=0, description=''):
     '''run camera setup fucntion until it succeeds
 
     Args:
