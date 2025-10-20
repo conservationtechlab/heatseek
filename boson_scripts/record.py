@@ -16,6 +16,7 @@ import os
 import numpy as np
 import cv2
 
+
 # setup camera parameters
 def setup(func, *args, delay=2, success_code=0, description=''):
     '''run camera setup fucntion until it succeeds
@@ -49,7 +50,8 @@ def get_center_temp(frame_16bit):
         center_f: center temperature in Fahrenheit
     '''
 
-    center_raw = frame_16bit[int(frame_16bit.shape[0]/2), int(frame_16bit.shape[1]/2)]
+    center_raw = frame_16bit[int(frame_16bit.shape[0]/2),
+                             int(frame_16bit.shape[1]/2)]
     center_c = round((center_raw/100) - 273, 1)
     center_f = round(center_c * 9/5 + 32, 1)
 
@@ -113,37 +115,46 @@ if __name__ == "__main__":
     raw_frames = []
     print('recording...')
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print('frame grab failed, stopping')
-            break
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print('frame grab failed, stopping')
+                break
 
-        raw_frames.append(frame)
+            raw_frames.append(frame)
 
-        # Viewable Window
-        min_val, max_val = np.min(frame), np.max(frame)
-        frame_8bit = cv2.normalize(frame, None, 0, 255, norm_type=cv2.NORM_MINMAX).astype(np.uint8)
-        frame_color = cv2.applyColorMap(frame_8bit, cv2.COLORMAP_INFERNO)
-        writer.write(frame_color)
+            # Viewable Window
+            min_val, max_val = np.min(frame), np.max(frame)
+            frame_8bit = cv2.normalize(frame, None, 0, 255, norm_type=cv2.NORM_MINMAX).astype(np.uint8)
+            frame_color = cv2.applyColorMap(frame_8bit, cv2.COLORMAP_INFERNO)
+            writer.write(frame_color)
+            if not headless:
+                cv2.imshow('color', frame_color)
+
+            # Display Center Temp
+            temp_c, temp_f = get_center_temp(frame)
+            print(f'Center temp: Temp C - {temp_c} | Temp F - {temp_f}')
+
+            # Stop Recording
+            #if cv2.waitKey(1) == ord('q'):
+            #    print(f'recording saved at {args.video_output_path}')
+            #    break
+
+    except KeyboardInterrupt:
+        print('Stopping Recording...')
+
+    finally:
+        raw_frames = np.stack(raw_frames, axis=0)
+        np.save(args.raw_output_path, raw_frames)
+
+        print('Recordings Saved')
+        print(f'Radiometric data: {args.raw_output_path}')
+        print(f'Normalized video: {args.video_output_path}')
+
+        cap.release()
+        writer.release()
         if not headless:
-            cv2.imshow('color', frame_color)
+            cv2.destroyAllWindows()
 
-        # Display Center Temp
-        temp_c, temp_f = get_center_temp(frame)
-        print(f'Center temp: Temp C - {temp_c} | Temp F - {temp_f}')
-
-        # Stop Recording
-        if cv2.waitKey(1) == ord('q'):
-            print(f'recording saved at {args.video_output_path}')
-            break
-
-    raw_frames = np.stack(raw_frames, axis=0)
-    np.save(args.raw_output_path, raw_frames)
-
-    cap.release()
-    writer.release()
-    if not headless:
-        cv2.destroyAllWindows()
-
-    myCam.Close()
+        myCam.Close()
