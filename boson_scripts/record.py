@@ -37,7 +37,7 @@ def setup(func, *args, delay=2, success_code=0, description=''):
     while result != success_code:
         sleep(delay)
         result = func(*args)
-    print(f'Success!')
+    print('Success!')
 
 
 def get_center_temp(frame_16bit):
@@ -137,7 +137,6 @@ if __name__ == "__main__":
             temp_c, temp_f = get_center_temp(frame)
             sys.stdout.write(f'\rCenter temp: Temp C - {temp_c} | Temp F - {temp_f}')
             sys.stdout.flush()
-
 
     except KeyboardInterrupt:
         print('\n\nRecording Stopped...')
