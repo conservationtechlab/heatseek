@@ -33,6 +33,7 @@ def setup(func, *args, delay=2, success_code=0, description=''):
     '''
 
     print(f'\nSetting {description}...')
+    sleep(.5)
     result = func(*args)
     while result != success_code:
         sleep(delay)
@@ -112,7 +113,6 @@ if __name__ == "__main__":
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     writer = cv2.VideoWriter(args.video_output_path, fourcc, 30, (320, 256))
     headless = not os.environ.get("DISPLAY")
-
     raw_frames = []
     print('\n\nRecording Started...')
 
@@ -132,6 +132,7 @@ if __name__ == "__main__":
             writer.write(frame_color)
             if not headless:
                 cv2.imshow('color', frame_color)
+                cv2.waitKey(1)
 
             # Display Center Temp
             temp_c, temp_f = get_center_temp(frame)
