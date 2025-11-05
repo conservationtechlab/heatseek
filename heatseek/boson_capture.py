@@ -10,6 +10,9 @@ import cv2
 class Boson_Capture(Capture):
     def __init__(self, camera_id=0, sdkpath='~/BosonSDK/SDK_USER_PERMISSIONS'):
         super().__init__(camera_id)
+        self.isRecording = False
+        self.height = 256
+        self.width = 320
 
         # import Boson SDK
         path = os.path.expanduser(sdkpath)
@@ -68,9 +71,43 @@ class Boson_Capture(Capture):
     def take_image(self):
         print('Taking Image')
 
-
-    def start_recording(self):
+    def start_recording(self, raw='output.npy', norm='output.mp4'):
         print('Starting Recording...')
+
+        # video settings
+        self.cap = cv2.VideoCapture(self.camera_id, cv2.CAP_V4L2)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('Y', '1', '6', ' '))
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        writer = cv2.VideoWriter(norm, fourcc, 30, (self.width, self.width))
+
+        # raw video setup
+        self.raw_mm = np.memmap(raw, dtype=np.uint16, mode='w+', shape=(50000, self.height, self.width))
+        self.frame_index = 0
+
+        self.isRecording = True
+
+        while self.isRecording:
+            ret, frame = cap.read()
+            if not ret:
+                print('frame grab failed, stopping')
+                break
+
+            # Viewable frame
+            min_val, max_val = np.min(frame), np.max(frame)
+            frame_8bit = ((frame - min_val)/max_val - min_val) * 255).astype(np.uint8)
+            frame_color = cv2.applyColorMap(frame_8bit, cv2.COLORMAP_INFERNO)
+            writer.write(frame_color)
+
+            # Raw Video
+            if self.frame_index > self.raw_mm.shape[0]:
+                print('reached preallocated size, stopping')
+                break
+            self.raw_mm[self.frame_index] = frame
+            self.frame_index += 1
+            self.raw_mm.flush()
 
     def stop_recording(self):
         print('Stopping Recording...')
@@ -79,6 +116,8 @@ class Boson_Capture(Capture):
         self.camera.Close()
         print('Release Camera')
 
+
+# TEST CODE
 boson_capture = Boson_Capture()
 boson_capture.release_camera()
 
