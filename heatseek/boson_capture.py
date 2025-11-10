@@ -1,5 +1,4 @@
-'''
-Implementation of Capture abstract class for FLIR Boson
+'''Implementation of Capture abstract class for FLIR Boson
 Radiometric Thermal camera
 
 This module provides the 'Boson_Capture' class, which implements the standard
@@ -16,7 +15,6 @@ from importlib import import_module
 import numpy as np
 import cv2
 from capture import Capture
-
 
 
 class BosonCapture(Capture):
@@ -59,9 +57,9 @@ class BosonCapture(Capture):
         self.raw_data_fpath = None
         self.viewable_video_fpath = None
         self.recording_thread = None
-        self.cap = None
+#        self.cap = None
         self.raw_mm = None
-        self.frame_index = None
+#        self.frame_index = None
 
         # import Boson SDK
         path = os.path.expanduser(sdkpath)
@@ -167,16 +165,16 @@ class BosonCapture(Capture):
         '''
 
         # video settings
-        self.cap = cv2.VideoCapture(self.camera_id, cv2.CAP_V4L2)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self.cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
-        self.cap.set(cv2.CAP_PROP_FOURCC,
+        cap = cv2.VideoCapture(self.camera_id, cv2.CAP_V4L2)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
+        cap.set(cv2.CAP_PROP_FOURCC,
                      cv2.VideoWriter_fourcc('Y', '1', '6', ' '))
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         writer = cv2.VideoWriter(self.viewable_video_fpath,
                                  fourcc,
-                                 30,
+                                 60,
                                  (self.width, self.height))
 
         # raw video setup
@@ -188,7 +186,7 @@ class BosonCapture(Capture):
 
         try:
             while self.recording:
-                ret, frame = self.cap.read()
+                ret, frame = cap.read()
                 if not ret:
                     print('Frame grab failed. Stopping Recording')
                     break
@@ -201,10 +199,10 @@ class BosonCapture(Capture):
                 writer.write(frame_color)
 
                 # Raw Video
-                if self.frame_index > self.raw_mm.shape[0]:
+                if frame_index > self.raw_mm.shape[0]:
                     print('Reached Preallocated Size, Stopping Recording')
                     break
-                self.raw_mm[self.frame_index] = frame
+                self.raw_mm[frame_index] = frame
                 frame_index += 1
                 self.raw_mm.flush()
 
