@@ -14,7 +14,7 @@ from time import sleep
 from importlib import import_module
 import numpy as np
 import cv2
-from capture import Capture
+from .capture import Capture
 
 
 class BosonCapture(Capture):
@@ -132,7 +132,7 @@ class BosonCapture(Capture):
 
         print('Taking Image- PLACEHOLDER')
 
-    def start_recording(self, raw='output.npy', norm='output.mp4'):
+    def start_recording(self, raw=None, norm=None):
         '''Begin thread for continuous recording
 
         Args:
@@ -146,8 +146,8 @@ class BosonCapture(Capture):
             print('Recording in Progress!')
             return
 
-        self.raw_data_fpath = raw
-        self.viewable_video_fpath = norm
+        self.raw_data_fpath = raw or 'output.npy'
+        self.viewable_video_fpath = norm or 'output.mp4'
 
         self.recording = True
         self.recording_thread = threading.Thread(
@@ -253,11 +253,3 @@ class BosonCapture(Capture):
 
         self.camera.Close()
         print('Release Camera')
-
-
-# TEST CODE
-boson_capture = BosonCapture()
-boson_capture.start_recording()
-sleep(10)
-boson_capture.stop_recording()
-boson_capture.release_camera()
