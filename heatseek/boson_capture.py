@@ -14,7 +14,7 @@ from time import sleep
 from importlib import import_module
 import numpy as np
 import cv2
-from .capture import Capture
+from heatseek.capture import Capture
 
 
 class BosonCapture(Capture):
