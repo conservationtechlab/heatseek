@@ -40,6 +40,12 @@ def main():
     '''
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--serial_port',
+                        type=str,
+                        help='path to serial port for radiometric data. Default is /dev/ttyACM0.')
+    parser.add_argument('--video_port',
+                        type=str,
+                        help='path to video port. Default is /dev/video0')
     parser.add_argument('--raw_output_path',
                         type=str,
                         help='filepath to save raw radiometric output')
@@ -54,7 +60,9 @@ def main():
                         help='time in s to record')
     args = parser.parse_args()
 
-    camera = BosonCapture()
+    camera = BosonCapture(serial_port=args.serial_port,
+                          video_port=args.video_port,
+                          sdkpath=args.bosonsdk_path)
     camera.start_recording(raw=args.raw_output_path,
                            norm=args.video_output_path)
     sleep(args.recording_time or 10)

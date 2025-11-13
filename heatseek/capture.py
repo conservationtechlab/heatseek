@@ -17,7 +17,7 @@ class Capture(ABC):
     managing recordings across different camera types.
     '''
 
-    def __init__(self, camera_id=0):
+    def __init__(self):
         '''Initialize capture interface
 
         This method should handle hardware initalization and
@@ -27,7 +27,6 @@ class Capture(ABC):
             camera_id (int, opt): Device identifier for camera.
                 Defaults to 0.
         '''
-        self.camera_id = camera_id
 
     @abstractmethod
     def setup(self):

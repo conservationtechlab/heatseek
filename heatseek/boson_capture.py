@@ -38,7 +38,7 @@ class BosonCapture(Capture):
         width (int): frame pixel width
     '''
 
-    def __init__(self, camera_id=0, sdkpath='~/BosonSDK/SDK_USER_PERMISSIONS'):
+    def __init__(self, serial_port=None, video_port=None, sdkpath=None):
         '''Initializes boson camera interface
 
         Loads Boson SDK, connects to camera and configures radiometric
@@ -49,20 +49,20 @@ class BosonCapture(Capture):
             skdpath (str, opt): path to FLIR Boson SDK folder.
                 Defaults to ~/BosonSDK/SDK_USER_PERMISSIONS
         '''
-        super().__init__(camera_id)
 
+        self.serial_port = serial_port or '/dev/ttyACM0'
+        self.video_port = video_port or '/dev/video0'
+        self.sdkpath = sdkpath or '~/BosonSDK/SDK_USER_PERMISSIONS'
         self.recording = False
         self.height = 256
         self.width = 320
         self.raw_data_fpath = None
         self.viewable_video_fpath = None
         self.recording_thread = None
-#        self.cap = None
         self.raw_mm = None
-#        self.frame_index = None
 
         # import Boson SDK
-        path = os.path.expanduser(sdkpath)
+        path = os.path.expanduser(self.sdkpath)
         assert os.path.exists(path), 'SDK Path does not exist'
         sys.path.append(path)
         self.cam_api = import_module(
@@ -73,8 +73,7 @@ class BosonCapture(Capture):
             )
 
         # create camera object & configure radiometric parameters
-        port = f'/dev/ttyACM{self.camera_id}'
-        self.camera = self.cam_api.pyClient(manualport=port)
+        self.camera = self.cam_api.pyClient(manualport=self.serial_port)
         self.setup()
 
     def setup(self):
@@ -165,7 +164,7 @@ class BosonCapture(Capture):
         '''
 
         # video settings
-        cap = cv2.VideoCapture(self.camera_id, cv2.CAP_V4L2)
+        cap = cv2.VideoCapture(self.video_port, cv2.CAP_V4L2)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
