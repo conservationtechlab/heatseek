@@ -24,7 +24,8 @@ class BosonCapture(Capture):
     camera.
 
     Attributes:
-        camera_id (int): used to select the appropriate USB port
+        serial_port (str): path to serial port for radiometric data
+        video_port (str): path to video port for noramlized video data
         cam_api (module): imported FLIR Boson SDK API modulde
         enums (module): imported FLIR Boson Enum definitions
         camera (pyClient): camera object created using boson SDK
@@ -45,7 +46,10 @@ class BosonCapture(Capture):
         parameters
 
         Args:
-            camera_id (int, opt): USB port index for camera. Defaults to 0
+            serial_port (str, opt): path to serial port. 
+                Defaults to \dev\ttyACM0.
+            video_port (str, opt): path to video port.
+                Defaults to \dev\video0.
             skdpath (str, opt): path to FLIR Boson SDK folder.
                 Defaults to ~/BosonSDK/SDK_USER_PERMISSIONS
         '''

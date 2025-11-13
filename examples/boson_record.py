@@ -7,6 +7,8 @@ viewable video file from a connected FLIR Boson camera.
 
 Usage:
     python boson_record.py \
+    --serial_port path/to/serial/port \
+    --video_port path/to/video/port \
     --raw_output_path path/to/output.npy \
     --video_output_path path/to/output.mp4 \
     --bosonsdk_path path/to/BosonSDK/SDK_USER_PERMISSIONS \
@@ -28,12 +30,17 @@ def main():
     duration, then stops and releases camera.
 
     Command-line args:
+        --serial_port (str, opt): Path to serial port.
+            Default is \dev\ttyACM0.
+        --video_port (str, opt): Path to video port.
+            Default is \dev\video0.
         --raw_output_path (str, opt): Filepath to save
             radiometric output (.npy)
         --video_output_path (str, opt): Filepath to save
             normalized video (.mp4)
         --bosonsdk_path (str, opt) Filepath to boson sdk folder
-        --recording_time (int, opt): Duration of recording in seconds
+        --recording_time (int, opt): Duration of recording in seconds.
+            Default is 10s.
 
     Returns:
         None
