@@ -1,4 +1,4 @@
-'''Example script to record thermal imagery using FLIR Boson
+"""Example script to record thermal imagery using FLIR Boson
 Radiometric camera.
 
 This script demonstrates how to use the 'BosonCapture' class from
@@ -16,7 +16,7 @@ Usage:
 
 If no arguments are provided, default filenames are used and script records
 for 10s.
-'''
+"""
 
 import argparse
 from time import sleep
@@ -24,7 +24,7 @@ from heatseek.boson_capture import BosonCapture
 
 
 def main():
-    '''Run exmaple thermal recording using BosonCapture
+    """Run exmaple thermal recording using BosonCapture
 
     Parses arguments, initializes camera, starts recording for specified
     duration, then stops and releases camera.
@@ -44,7 +44,7 @@ def main():
 
     Returns:
         None
-    '''
+    """
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--serial_port',

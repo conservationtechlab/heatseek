@@ -1,11 +1,11 @@
-'''Implementation of Capture abstract class for FLIR Boson
+"""Implementation of Capture abstract class for FLIR Boson
 Radiometric Thermal camera
 
 This module provides the 'Boson_Capture' class, which implements the standard
 camera interface defined by the 'Capture' abstract base class. It handles
 initializing the BosonSDK, capturing single frames, recording radiometric
 frames, and creating a viewable mp4 video with a color map.
-'''
+"""
 
 import threading
 import sys
@@ -18,7 +18,7 @@ from heatseek.capture import Capture
 
 
 class BosonCapture(Capture):
-    '''Camera interface for FLIR Boson Radiometric Thermal camera
+    """Camera interface for FLIR Boson Radiometric Thermal camera
 
     Implements 'Capture' abstract base class for Boson Radiometric thermal
     camera.
@@ -37,10 +37,10 @@ class BosonCapture(Capture):
         recording_thread (threading.Thread): thread running recording loop
         height (int): frame pixel height
         width (int): frame pixel width
-    '''
+    """
 
     def __init__(self, serial_port=None, video_port=None, sdkpath=None):
-        '''Initializes boson camera interface
+        """Initializes boson camera interface
 
         Loads Boson SDK, connects to camera and configures radiometric
         parameters
@@ -52,7 +52,7 @@ class BosonCapture(Capture):
                 Defaults to \dev\video0.
             skdpath (str, opt): path to FLIR Boson SDK folder.
                 Defaults to ~/BosonSDK/SDK_USER_PERMISSIONS
-        '''
+        """
 
         self.serial_port = serial_port or '/dev/ttyACM0'
         self.video_port = video_port or '/dev/video0'
@@ -81,11 +81,11 @@ class BosonCapture(Capture):
         self.setup()
 
     def setup(self):
-        '''Configure radiometric parameters for capture
+        """Configure radiometric parameters for capture
 
         Sets High Gain Mode, enables TLinear mode, sets IR16 mode,
         configures window transmissivity, refreshes LUT, & performs FFC
-        '''
+        """
 
         print('Setting up Radiometry...')
 
@@ -109,7 +109,7 @@ class BosonCapture(Capture):
                         description='Flat Field Correction')
 
     def _configure(self, func, *args, delay=1, success_code=0, description=''):
-        '''run camera paramter configuration function until it succeeds
+        """run camera paramter configuration function until it succeeds
 
         Args:
             func: function to update camera parameter
@@ -117,7 +117,7 @@ class BosonCapture(Capture):
             delay (int): delay before trying again
             success_code (int): success code returned from func
             description (str): name of setting
-        '''
+        """
 
         print(f'\nSetting {description}')
         sleep(0.5)
@@ -128,22 +128,22 @@ class BosonCapture(Capture):
         print('Success!')
 
     def take_image(self):
-        '''Capture single image frame from camera.
+        """Capture single image frame from camera.
 
         Currently placeholder method - will be implemented to return ndarray
-        '''
+        """
 
         print('Taking Image- PLACEHOLDER')
 
     def start_recording(self, raw=None, norm=None):
-        '''Begin thread for continuous recording
+        """Begin thread for continuous recording
 
         Args:
             raw (str, opt): filepath to save raw radiometric data.
                 Defaults to output.npy
             norm (str, opt): filepath to save normalized mp4 video.
                 Defaults to output.mp4
-        '''
+        """
 
         if self.recording:
             print('Recording in Progress!')
@@ -160,12 +160,12 @@ class BosonCapture(Capture):
         print('Staring Recording...')
 
     def _record_loop(self):
-        '''Internal method: recording loop to continuously capture frames
+        """Internal method: recording loop to continuously capture frames
 
         Saves raw radiometric frames and writes a viewable mp4 video.
         Stops recording when self.recording is False or preallocated
         memory is full
-        '''
+        """
 
         # video settings
         cap = cv2.VideoCapture(self.video_port, cv2.CAP_V4L2)
@@ -213,11 +213,11 @@ class BosonCapture(Capture):
             self._finalize_recording()
 
     def stop_recording(self):
-        '''Stop ongoing recording session.
+        """Stop ongoing recording session.
 
         Sets isRecording flag to False, waits for recording thread to finish,
         and cleans up resources.
-        '''
+        """
 
         if not self.recording:
             print('No recording in progress')
@@ -231,11 +231,11 @@ class BosonCapture(Capture):
             self.recording_thread = None
 
     def _finalize_recording(self):
-        '''Finalize recording.
+        """Finalize recording.
 
         Flushes and deletes memory-mapped raw frame array, closes video writer,
         and prints file locations.
-        '''
+        """
 
         self.recording = False
 
@@ -249,10 +249,10 @@ class BosonCapture(Capture):
         print(f'Viewable Video: {self.viewable_video_fpath}')
 
     def release_camera(self):
-        '''Release camera resources.
+        """Release camera resources.
 
         Closes camera connection via boson SDK
-        '''
+        """
 
         self.camera.Close()
         print('Release Camera')
