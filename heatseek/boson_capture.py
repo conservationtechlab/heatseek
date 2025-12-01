@@ -149,7 +149,7 @@ class BosonCapture(Capture):
             print('Recording in Progress!')
             return
 
-        self.raw_data_fpath = raw or 'output.npy'
+        self.raw_data_fpath = raw or 'output.raw'
         self.viewable_video_fpath = norm or 'output.mp4'
 
         self.recording = True

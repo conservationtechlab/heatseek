@@ -84,3 +84,71 @@ def reduce_background(in_path: str, out_path: str, yaml_path: str = "heatseek/co
     out.release()
     
     print(f"[video_preproc] saved → {out_path}")
+
+
+def reduce_background_radiometric(in_path: str, out_path: str, yaml_path: str = "heatseek/config/preproc_config.yaml"):
+    """
+    Optical flow background reduction using parameters from a YAML config on radiometric data.
+
+    Args:
+        in_path (str): Path to input video file.
+        out_path (str): Path to save processed video.
+        yaml_path (str): Path to YAML configuration file containing motion_thresh and flow_params.
+    """
+    with open(yaml_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    motion_thresh = config.get('motion_thresh', 1.0)
+    flow_cfg = config.get('flow_params', {})
+    pyr_scale = flow_cfg.get('pyr_scale', 0.5)
+    levels = flow_cfg.get('levels', 3)
+    winsize = flow_cfg.get('winsize', 7)
+    iterations = flow_cfg.get('iterations', 3)
+    poly_n = flow_cfg.get('poly_n', 5)
+    poly_sigma = flow_cfg.get('poly_sigma', 1.2)
+    flags = flow_cfg.get('flags', 0)
+
+    fps = 30
+    width = 320
+    height = 256
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
+
+    
+    mm = np.memmap(in_path,
+                   dtype=np.uint16,
+                   mode='r',
+                   shape=(300, 256, 320)) # TODO remove hardcoding
+    global_min = np.min(mm)
+    global_max = np.max(mm)
+    prev_frame = mm[0]
+    prev_frame = ((prev_frame - global_min)/(global_max - global_min)*255).astype(np.uint8)
+    
+    for i in tqdm(range(299), desc="bg-reduce"):
+
+        frame = mm[i+1]
+        frame = ((frame - global_min)/(global_max - global_min)*255).astype(np.uint8)
+          
+        frame_color = cv2.applyColorMap(frame, cv2.COLORMAP_INFERNO)
+
+        flow = cv2.calcOpticalFlowFarneback(
+            prev_frame, frame, None,
+            pyr_scale, levels, winsize,
+            iterations, poly_n, poly_sigma, flags
+        )
+
+        mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+
+        mask = (mag > motion_thresh).astype(np.uint8) * 255
+        dist = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
+        mask = (dist > 1.5).astype(np.uint8) * 255
+        mask_color = cv2.merge([mask, mask, mask])
+
+        fg = cv2.bitwise_and(frame_color, mask_color)
+        out.write(fg)
+
+        prev_frame = frame
+
+    out.release()
+    
+    print(f"[video_preproc] saved → {out_path}")

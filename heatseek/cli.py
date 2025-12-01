@@ -5,7 +5,7 @@ import argparse
 import requests
 from .data_utils import download_dataset, write_data_yaml
 from .train import train
-from .preprocess import reduce_background
+from .preprocess import reduce_background, reduce_background_radiometric
 from .detect_track import detect_and_track
 from .density_annotator import annotate_folder
 def main():
@@ -53,6 +53,16 @@ def main():
     pre.add_argument("--input", required=True, help="Input video path")
     pre.add_argument("--output", required=True, help="Output video path")
     pre.add_argument(
+        "--config",
+        default="heatseek/config/preproc_config.yaml",
+        help="YAML config for optical‐flow thresholds",
+    )
+
+    # preprocess
+    pre_r = subs.add_parser("preprocess_radiometric", help="Reduce background in a radiometric video")
+    pre_r.add_argument("--input", required=True, help="Input video path")
+    pre_r.add_argument("--output", required=True, help="Output video path")
+    pre_r.add_argument(
         "--config",
         default="heatseek/config/preproc_config.yaml",
         help="YAML config for optical‐flow thresholds",
@@ -111,6 +121,9 @@ def main():
 
     elif args.cmd == "preprocess":
         reduce_background(args.input, args.output, args.config)
+
+    elif args.cmd == "preprocess_radiometric":
+        reduce_background_radiometric(args.input, args.output, args.config)
 
     elif args.cmd == "track":
         detect_and_track(args.input, args.output, args.weights)
