@@ -11,6 +11,7 @@ Usage:
     --video_port path/to/video/port \
     --raw_output_path path/to/output.npy \
     --video_output_path path/to/output.mp4 \
+    --metadata_path path/to/metadata.yaml \
     --bosonsdk_path path/to/BosonSDK/SDK_USER_PERMISSIONS \
     --recording_time 60
 
@@ -38,6 +39,8 @@ def main():
             radiometric output (.npy)
         --video_output_path (str, opt): Filepath to save
             normalized video (.mp4)
+        --metadata_path (str, opt): Filepath to save 
+            radiometric metadata
         --bosonsdk_path (str, opt) Filepath to boson sdk folder
         --recording_time (int, opt): Duration of recording in seconds.
             Default is 10s.
@@ -59,6 +62,9 @@ def main():
     parser.add_argument('--video_output_path',
                         type=str,
                         help='filepath to save normalized video output')
+    parser.add_argument('--metadata_path',
+                        type=str,
+                        help='filepath to save radiometric metadata')
     parser.add_argument('--bosonsdk_path',
                         type=str,
                         help='filepath to boson sdk')
@@ -71,7 +77,8 @@ def main():
                           video_port=args.video_port,
                           sdkpath=args.bosonsdk_path)
     camera.start_recording(raw=args.raw_output_path,
-                           norm=args.video_output_path)
+                           norm=args.video_output_path,
+                           meta=args.metadata_path)
     sleep(args.recording_time or 10)
     camera.stop_recording()
     camera.release_camera()

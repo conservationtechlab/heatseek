@@ -12,6 +12,7 @@ import sys
 import os
 import yaml
 from time import sleep
+from datetime import datetime
 from importlib import import_module
 import numpy as np
 import cv2
@@ -64,6 +65,7 @@ class BosonCapture(Capture):
         self.n_frames = 0
         self.raw_data_fpath = None
         self.viewable_video_fpath = None
+        self.metadata_fpath = None
         self.recording_thread = None
         self.raw_mm = None
 
@@ -137,7 +139,7 @@ class BosonCapture(Capture):
 
         print('Taking Image- PLACEHOLDER')
 
-    def start_recording(self, raw=None, norm=None):
+    def start_recording(self, raw=None, norm=None, meta=None):
         """Begin thread for continuous recording
 
         Args:
@@ -151,8 +153,11 @@ class BosonCapture(Capture):
             print('Recording in Progress!')
             return
 
-        self.raw_data_fpath = raw or 'output.raw' #TODO: add time stamps to defaults
-        self.viewable_video_fpath = norm or 'output.mp4'
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        self.raw_data_fpath = raw or f'output_{timestamp}.raw'
+        self.viewable_video_fpath = norm or f'output_{timestamp}.mp4'
+        self.metadata_fpath = meta or f'metadata_{timestamp}.yaml'
 
         self.recording = True
         self.recording_thread = threading.Thread(
@@ -253,7 +258,7 @@ class BosonCapture(Capture):
         
         print('Recording Successfully Completed')
         print(f'Radiometric Video: {self.raw_data_fpath}')
-        print(f'Radiometric Metadata: radiometric_metadata.yaml') # TODO: remove hardcoding of meta data path
+        print(f'Radiometric Metadata: {self.metadata_fpath}')
         print(f'Viewable Video: {self.viewable_video_fpath}')
 
     def _write_radiometric_metadata(self):
@@ -267,9 +272,7 @@ class BosonCapture(Capture):
             'dtype': 'uint16',
         }    
 
-        out_yaml_path = 'radiometric_metadata.yaml'
-
-        with open(out_yaml_path, "w") as f:
+        with open(self.metadata_fpath, "w") as f:
             yaml.safe_dump(meta, f, sort_keys=False)
         
 
