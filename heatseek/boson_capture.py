@@ -10,6 +10,7 @@ frames, and creating a viewable mp4 video with a color map.
 import threading
 import sys
 import os
+import yaml
 from time import sleep
 from importlib import import_module
 import numpy as np
@@ -60,6 +61,7 @@ class BosonCapture(Capture):
         self.recording = False
         self.height = 256
         self.width = 320
+        self.n_frames = 0
         self.raw_data_fpath = None
         self.viewable_video_fpath = None
         self.recording_thread = None
@@ -149,7 +151,7 @@ class BosonCapture(Capture):
             print('Recording in Progress!')
             return
 
-        self.raw_data_fpath = raw or 'output.raw'
+        self.raw_data_fpath = raw or 'output.raw' #TODO: add time stamps to defaults
         self.viewable_video_fpath = norm or 'output.mp4'
 
         self.recording = True
@@ -185,7 +187,8 @@ class BosonCapture(Capture):
                                 dtype=np.uint16,
                                 mode='w+',
                                 shape=(50000, self.height, self.width))
-        frame_index = 0
+        #frame_index = 0
+        self.n_frames = 0
 
         try:
             while self.recording:
@@ -202,11 +205,13 @@ class BosonCapture(Capture):
                 writer.write(frame_color)
 
                 # Raw Video
-                if frame_index > self.raw_mm.shape[0]:
+                #if frame_index > self.raw_mm.shape[0]:
+                if self.n_frames > self.raw_mm.shape[0]:
                     print('Reached Preallocated Size, Stopping Recording')
                     break
-                self.raw_mm[frame_index] = frame
-                frame_index += 1
+                self.raw_mm[self.n_frames] = frame
+                #frame_index += 1
+                self.n_frames += 1
                 self.raw_mm.flush()
 
         finally:
@@ -244,9 +249,29 @@ class BosonCapture(Capture):
             del self.raw_mm
             self.raw_mm = None
 
+        self._write_radiometric_metadata()
+        
         print('Recording Successfully Completed')
-        print(f'Radiometric data saved: {self.raw_data_fpath}')
+        print(f'Radiometric Video: {self.raw_data_fpath}')
+        print(f'Radiometric Metadata: radiometric_metadata.yaml') # TODO: remove hardcoding of meta data path
         print(f'Viewable Video: {self.viewable_video_fpath}')
+
+    def _write_radiometric_metadata(self):
+        """Saves out all radiometric video metadata
+        """
+
+        meta = {
+            'width': self.width,
+            'height': self.height,
+            'n_frames': self.n_frames,
+            'dtype': 'uint16',
+        }    
+
+        out_yaml_path = 'radiometric_metadata.yaml'
+
+        with open(out_yaml_path, "w") as f:
+            yaml.safe_dump(meta, f, sort_keys=False)
+        
 
     def release_camera(self):
         """Release camera resources.

@@ -113,7 +113,6 @@ def reduce_background_radiometric(in_path: str, out_path: str, yaml_path: str = 
     height = 256
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
-
     
     mm = np.memmap(in_path,
                    dtype=np.uint16,
