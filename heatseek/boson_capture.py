@@ -185,25 +185,18 @@ class BosonCapture(Capture):
         memory is full
         """
 
-        # video settings
+        # MP4 Setup
         cap = cv2.VideoCapture(self.video_port, cv2.CAP_V4L2)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
         cap.set(cv2.CAP_PROP_FOURCC,
-                     cv2.VideoWriter_fourcc('Y', '1', '6', ' '))
-                     
-        mpv4_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        ffv1_fourcc = cv2.VideoWriter_fourcc(*'FFV1')
-        
+                     cv2.VideoWriter_fourcc('Y', '1', '6', ' '))                     
+        mpv4_fourcc = cv2.VideoWriter_fourcc(*'mp4v')        
         autonorm_writer = cv2.VideoWriter(self.autonorm_fpath,
                                           mpv4_fourcc,
                                           60,
                                           (self.width, self.height))
-        globalnorm_writer = cv2.VideoWriter(self.globalnorm_fpath,
-                                            ffv1_fourcc,
-                                            60,
-                                            (self.width, self.height))
 
         ## MKV Setup
         proc = subprocess.Popen([
@@ -218,16 +211,12 @@ class BosonCapture(Capture):
         ], stdin=subprocess.PIPE)
 
         # raw video setup
-        self.raw_mm = np.memmap('raw_test.raw',
-                                dtype=np.uint16,
-                                mode='w+',
-                                shape=(600, self.height, self.width))
-        frame_index = 0
+        # self.raw_mm = np.memmap('raw_test.raw',
+                                # dtype=np.uint16,
+                                # mode='w+',
+                                # shape=(600, self.height, self.width))
+        # frame_index = 0
         self.n_frames = 0
-
-        # min max tracker 
-        min_temp = 65535
-        max_temp = 0
 
         try:
             while self.recording:
@@ -236,89 +225,44 @@ class BosonCapture(Capture):
                     print('Frame grab failed. Stopping Recording')
                     break
                     
-                # Autonorm Frame
-                #frame_8bit = cv2.normalize(frame, None, 0, 255,
-                #                norm_type=cv2.NORM_MINMAX).astype(np.uint8)
-                #frame_color = cv2.applyColorMap(frame_8bit,
-                #                cv2.COLORMAP_INFERNO).astype(np.uint8)
-                #autonorm_writer.write(frame_color)
-                
-                # try:
-                    # print(self.raw_mm[self.n_frames-1].dtype, self.raw_mm[self.n_frames-1].min(), self.raw_mm[self.n_frames-1].max())
-                # except:
-                    # pass
-                # Globalnorm Frame
-                #dn = np.clip(frame, self.GLOBAL_MIN, self.GLOBAL_MAX)
-                frame_32bit = frame.astype(np.float32)
-                #frame_32bit = np.clip(frame, self.GLOBAL_MIN, self.GLOBAL_MAX)
-                
-                frame_8bit = (255.0 * (frame_32bit-self.GLOBAL_MIN)/(self.GLOBAL_MAX-self.GLOBAL_MIN)).astype(np.uint8)
-                diff = self.GLOBAL_MAX - self.GLOBAL_MIN
-                num = (frame - self.GLOBAL_MIN)
-                num2 = 255*(num.astype(np.float32))
-                test_frame = num2/diff
-                #globalnorm_writer.write(frame_8bit)  
+                # Autonorm Frame (MP4)
+                frame_8bit_autonorm = cv2.normalize(frame, None, 0, 255,
+                                    norm_type=cv2.NORM_MINMAX).astype(np.uint8)
+                frame_color = cv2.applyColorMap(frame_8bit_autonorm,
+                                    cv2.COLORMAP_INFERNO).astype(np.uint8)
+                autonorm_writer.write(frame_color)
+
+                # Globalnorm Frame (MKV)
+                frame_32bit = frame.astype(np.float32)                
+                frame_8bit_globalnorm = (255.0 * (frame_32bit-self.GLOBAL_MIN)/(self.GLOBAL_MAX-self.GLOBAL_MIN)).astype(np.uint8)
+                proc.stdin.write(frame_8bit_globalnorm.tobytes())
 
 
-                # to compare mp4 and MKV
-                frame_3channel = np.stack([frame_8bit, frame_8bit, frame_8bit], axis=-1)
-                autonorm_writer.write(frame_3channel)
-                
-                # MKV DEBUG
-                proc.stdin.write(frame_8bit.tobytes())
-
-                # min max tracker         
-                min_temp = min(frame.min(), min_temp)
-                max_temp = max(frame.max(), max_temp)
-
-
-                if frame_index % 60 ==0:
+                # if frame_index % 60 ==0:
                     # print(self._get_center_temp(frame))
-                    # num = frame - self.GLOBAL_MIN
-                    # print(self._get_center_temp(num))
-                    # div = num/(self.GLOBAL_MAX - self.GLOBAL_MIN)
-                    # print(self._get_center_temp(div))
-                    # norm = 255*div
-                    # print(self._get_center_temp(norm))
-                    # norm_int = norm.astype(np.uint8)
-                    # print(self._get_center_temp(norm_int))
-                    # print(norm_int.shape)
-                    # print(self._get_center_temp(frame_8bit))
-                    # print('test frame')
-                    print(f'raw: {self._get_center_temp(frame)} | {frame.dtype}')
-                    # print(f'raw - global_min: {self._get_center_temp(num)} | {num.dtype}')
-                    # print(f'global_max - global_min: {diff} | {type(diff)}')
-                    # print(f'255*num: {self._get_center_temp(num2)} | {num2.dtype}')
-                    print(f'Final: {self._get_center_temp(test_frame)} | {test_frame.dtype}')
-                    # #center_norm = (255 * (center-self.GLOBAL_MIN)/(self.GLOBAL_MAX-self.GLOBAL_MIN)).astype(np.uint8)
-                    # #print(f'Center Temp RAW: {self._get_center_temp(frame)} || {center}')
-                    print(f'Center Temp frame_8bit: {self._get_center_temp(frame_8bit)}\n')
-                    # 
+
                 # Raw Video
-                if frame_index < self.raw_mm.shape[0]:
-                    if self.n_frames > self.raw_mm.shape[0]:
-                        print('Reached Preallocated Size, Stopping Recording')
-                        break
-                    self.raw_mm[self.n_frames] = frame
-                    frame_index += 1
-                    self.n_frames += 1
-                    #print(self.raw_mm[self.n_frames][int(self.height/2), int(self.width/2)])
-                    self.raw_mm.flush()
+                # if frame_index < self.raw_mm.shape[0]:
+                    # if self.n_frames > self.raw_mm.shape[0]:
+                        # print('Reached Preallocated Size, Stopping Recording')
+                        # break
+                    # self.raw_mm[self.n_frames] = frame
+                    # frame_index += 1
+                    # self.n_frames += 1
+                    # self.raw_mm.flush()
+
+                self.n_frames += 1
                     
 
         finally:
             cap.release()
             autonorm_writer.release()
-            globalnorm_writer.release()
 
             self._finalize_recording()
             
-            ## MKV DEBUG
             proc.stdin.close()
             proc.wait()
-            
-            print(f'MIN TEMPERATURE: {min_temp}')
-            print(f'MAX TEMPERATURE: {max_temp}')
+
 
     def stop_recording(self):
         """Stop ongoing recording session.
@@ -346,18 +290,18 @@ class BosonCapture(Capture):
         """
 
         self.recording = False
-
-        if self.raw_mm is not None:
-            self.raw_mm.flush()
-            del self.raw_mm
-            self.raw_mm = None
+# 
+        # if self.raw_mm is not None:
+            # self.raw_mm.flush()
+            # del self.raw_mm
+            # self.raw_mm = None
 
         self._write_radiometric_metadata()
         
         print('Recording Successfully Completed')
-        print(f'Radiometric Video: {self.autonorm_fpath}')
+        print(f'Viewable Video: {self.autonorm_fpath}')
+        print(f'Globally normalized Video: {self.globalnorm_fpath}')
         print(f'Radiometric Metadata: {self.metadata_fpath}')
-        print(f'Viewable Video: {self.viewable_video_fpath}')
 
     def _write_radiometric_metadata(self):
         """Saves out all radiometric video metadata
