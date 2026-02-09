@@ -9,8 +9,8 @@ Usage:
     python boson_record.py \
     --serial_port path/to/serial/port \
     --video_port path/to/video/port \
-    --raw_output_path path/to/output.npy \
-    --video_output_path path/to/output.mp4 \
+    --autonorm_path path/to/output.mp4 \
+    --globalnorm_path path/to/output.mp4 \
     --metadata_path path/to/metadata.yaml \
     --bosonsdk_path path/to/BosonSDK/SDK_USER_PERMISSIONS \
     --recording_time 60
@@ -35,9 +35,9 @@ def main():
             Default is \dev\ttyACM0.
         --video_port (str, opt): Path to video port.
             Default is \dev\video0.
-        --raw_output_path (str, opt): Filepath to save
-            radiometric output (.npy)
-        --video_output_path (str, opt): Filepath to save
+        --autonorm_path (str, opt): Filepath to save
+            radiometric output (.mp4)
+        --globalnorm_path (str, opt): Filepath to save
             normalized video (.mp4)
         --metadata_path (str, opt): Filepath to save 
             radiometric metadata
@@ -56,10 +56,10 @@ def main():
     parser.add_argument('--video_port',
                         type=str,
                         help='path to video port. Default is /dev/video0')
-    parser.add_argument('--raw_output_path',
+    parser.add_argument('--autonorm_path',
                         type=str,
                         help='filepath to save raw radiometric output')
-    parser.add_argument('--video_output_path',
+    parser.add_argument('--globalnorm_path',
                         type=str,
                         help='filepath to save normalized video output')
     parser.add_argument('--metadata_path',
@@ -76,8 +76,8 @@ def main():
     camera = BosonCapture(serial_port=args.serial_port,
                           video_port=args.video_port,
                           sdkpath=args.bosonsdk_path)
-    camera.start_recording(raw=args.raw_output_path,
-                           norm=args.video_output_path,
+    camera.start_recording(autonorm=args.autonorm_path,
+                           globalnorm=args.globalnorm_path,
                            meta=args.metadata_path)
     sleep(args.recording_time or 10)
     camera.stop_recording()

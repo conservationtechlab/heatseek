@@ -18,6 +18,8 @@ import numpy as np
 import cv2
 from heatseek.capture import Capture
 
+import subprocess
+
 
 class BosonCapture(Capture):
     """Camera interface for FLIR Boson Radiometric Thermal camera
@@ -62,9 +64,11 @@ class BosonCapture(Capture):
         self.recording = False
         self.height = 256
         self.width = 320
+        self.GLOBAL_MIN = 28000
+        self.GLOBAL_MAX = 32000
         self.n_frames = 0
-        self.raw_data_fpath = None
-        self.viewable_video_fpath = None
+        self.autonorm_fpath = None
+        self.globalnorm_fpath = None
         self.metadata_fpath = None
         self.recording_thread = None
         self.raw_mm = None
@@ -139,14 +143,14 @@ class BosonCapture(Capture):
 
         print('Taking Image- PLACEHOLDER')
 
-    def start_recording(self, raw=None, norm=None, meta=None):
+    def start_recording(self, autonorm=None, globalnorm=None, meta=None):
         """Begin thread for continuous recording
 
         Args:
-            raw (str, opt): filepath to save raw radiometric data.
-                Defaults to output.npy
-            norm (str, opt): filepath to save normalized mp4 video.
-                Defaults to output.mp4
+            autonorm (str, opt): filepath to save frame by frame noramlized video.
+                Defaults to autonorm_{timestamp}.mp4
+            globalnorm (str, opt): filepath to save globally normalized mp4 video.
+                Defaults to globalnorm_{timestamp}.mp4
         """
 
         if self.recording:
@@ -155,8 +159,8 @@ class BosonCapture(Capture):
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        self.raw_data_fpath = raw or f'output_{timestamp}.raw'
-        self.viewable_video_fpath = norm or f'output_{timestamp}.mp4'
+        self.autonorm_fpath = autonorm or f'autonorm_{timestamp}.mp4'
+        self.globalnorm_fpath = globalnorm or f'globalnorm_{timestamp}.mkv'
         self.metadata_fpath = meta or f'metadata_{timestamp}.yaml'
 
         self.recording = True
@@ -165,6 +169,13 @@ class BosonCapture(Capture):
             )
         self.recording_thread.start()
         print('Staring Recording...')
+
+    def _get_center_temp(self, frame):
+
+        center = frame[int(self.height/2), int(self.width/2)]
+        #center_k = center/100
+        #center_f = (center_k - 273.15) * (9/5) + 32
+        return center
 
     def _record_loop(self):
         """Internal method: recording loop to continuously capture frames
@@ -181,19 +192,42 @@ class BosonCapture(Capture):
         cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
         cap.set(cv2.CAP_PROP_FOURCC,
                      cv2.VideoWriter_fourcc('Y', '1', '6', ' '))
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        writer = cv2.VideoWriter(self.viewable_video_fpath,
-                                 fourcc,
-                                 60,
-                                 (self.width, self.height))
+                     
+        mpv4_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        ffv1_fourcc = cv2.VideoWriter_fourcc(*'FFV1')
+        
+        autonorm_writer = cv2.VideoWriter(self.autonorm_fpath,
+                                          mpv4_fourcc,
+                                          60,
+                                          (self.width, self.height))
+        globalnorm_writer = cv2.VideoWriter(self.globalnorm_fpath,
+                                            ffv1_fourcc,
+                                            60,
+                                            (self.width, self.height))
+
+        ## MKV Setup
+        proc = subprocess.Popen([
+            "ffmpeg", "-y",
+            "-f", "rawvideo",
+            "-pixel_format", "gray",
+            "-video_size", f"{self.width}x{self.height}",
+            "-framerate", "60",
+            "-i", "-",
+            "-c:v", "libx264",
+            self.globalnorm_fpath
+        ], stdin=subprocess.PIPE)
 
         # raw video setup
-        self.raw_mm = np.memmap(self.raw_data_fpath,
+        self.raw_mm = np.memmap('raw_test.raw',
                                 dtype=np.uint16,
                                 mode='w+',
-                                shape=(50000, self.height, self.width))
-        #frame_index = 0
+                                shape=(600, self.height, self.width))
+        frame_index = 0
         self.n_frames = 0
+
+        # min max tracker 
+        min_temp = 65535
+        max_temp = 0
 
         try:
             while self.recording:
@@ -201,26 +235,90 @@ class BosonCapture(Capture):
                 if not ret:
                     print('Frame grab failed. Stopping Recording')
                     break
+                    
+                # Autonorm Frame
+                #frame_8bit = cv2.normalize(frame, None, 0, 255,
+                #                norm_type=cv2.NORM_MINMAX).astype(np.uint8)
+                #frame_color = cv2.applyColorMap(frame_8bit,
+                #                cv2.COLORMAP_INFERNO).astype(np.uint8)
+                #autonorm_writer.write(frame_color)
+                
+                # try:
+                    # print(self.raw_mm[self.n_frames-1].dtype, self.raw_mm[self.n_frames-1].min(), self.raw_mm[self.n_frames-1].max())
+                # except:
+                    # pass
+                # Globalnorm Frame
+                #dn = np.clip(frame, self.GLOBAL_MIN, self.GLOBAL_MAX)
+                frame_32bit = frame.astype(np.float32)
+                #frame_32bit = np.clip(frame, self.GLOBAL_MIN, self.GLOBAL_MAX)
+                
+                frame_8bit = (255.0 * (frame_32bit-self.GLOBAL_MIN)/(self.GLOBAL_MAX-self.GLOBAL_MIN)).astype(np.uint8)
+                diff = self.GLOBAL_MAX - self.GLOBAL_MIN
+                num = (frame - self.GLOBAL_MIN)
+                num2 = 255*(num.astype(np.float32))
+                test_frame = num2/diff
+                #globalnorm_writer.write(frame_8bit)  
 
-                # Viewable frame
-                frame_8bit = cv2.normalize(frame, None, 0, 255,
-                                norm_type=cv2.NORM_MINMAX).astype(np.uint8)
-                frame_color = cv2.applyColorMap(frame_8bit,
-                                cv2.COLORMAP_INFERNO).astype(np.uint8)
-                writer.write(frame_color)
 
+                # to compare mp4 and MKV
+                frame_3channel = np.stack([frame_8bit, frame_8bit, frame_8bit], axis=-1)
+                autonorm_writer.write(frame_3channel)
+                
+                # MKV DEBUG
+                proc.stdin.write(frame_8bit.tobytes())
+
+                # min max tracker         
+                min_temp = min(frame.min(), min_temp)
+                max_temp = max(frame.max(), max_temp)
+
+
+                if frame_index % 60 ==0:
+                    # print(self._get_center_temp(frame))
+                    # num = frame - self.GLOBAL_MIN
+                    # print(self._get_center_temp(num))
+                    # div = num/(self.GLOBAL_MAX - self.GLOBAL_MIN)
+                    # print(self._get_center_temp(div))
+                    # norm = 255*div
+                    # print(self._get_center_temp(norm))
+                    # norm_int = norm.astype(np.uint8)
+                    # print(self._get_center_temp(norm_int))
+                    # print(norm_int.shape)
+                    # print(self._get_center_temp(frame_8bit))
+                    # print('test frame')
+                    print(f'raw: {self._get_center_temp(frame)} | {frame.dtype}')
+                    # print(f'raw - global_min: {self._get_center_temp(num)} | {num.dtype}')
+                    # print(f'global_max - global_min: {diff} | {type(diff)}')
+                    # print(f'255*num: {self._get_center_temp(num2)} | {num2.dtype}')
+                    print(f'Final: {self._get_center_temp(test_frame)} | {test_frame.dtype}')
+                    # #center_norm = (255 * (center-self.GLOBAL_MIN)/(self.GLOBAL_MAX-self.GLOBAL_MIN)).astype(np.uint8)
+                    # #print(f'Center Temp RAW: {self._get_center_temp(frame)} || {center}')
+                    print(f'Center Temp frame_8bit: {self._get_center_temp(frame_8bit)}\n')
+                    # 
                 # Raw Video
-                #if frame_index > self.raw_mm.shape[0]:
-                if self.n_frames > self.raw_mm.shape[0]:
-                    print('Reached Preallocated Size, Stopping Recording')
-                    break
-                self.raw_mm[self.n_frames] = frame
-                #frame_index += 1
-                self.n_frames += 1
-                self.raw_mm.flush()
+                if frame_index < self.raw_mm.shape[0]:
+                    if self.n_frames > self.raw_mm.shape[0]:
+                        print('Reached Preallocated Size, Stopping Recording')
+                        break
+                    self.raw_mm[self.n_frames] = frame
+                    frame_index += 1
+                    self.n_frames += 1
+                    #print(self.raw_mm[self.n_frames][int(self.height/2), int(self.width/2)])
+                    self.raw_mm.flush()
+                    
 
         finally:
+            cap.release()
+            autonorm_writer.release()
+            globalnorm_writer.release()
+
             self._finalize_recording()
+            
+            ## MKV DEBUG
+            proc.stdin.close()
+            proc.wait()
+            
+            print(f'MIN TEMPERATURE: {min_temp}')
+            print(f'MAX TEMPERATURE: {max_temp}')
 
     def stop_recording(self):
         """Stop ongoing recording session.
@@ -257,7 +355,7 @@ class BosonCapture(Capture):
         self._write_radiometric_metadata()
         
         print('Recording Successfully Completed')
-        print(f'Radiometric Video: {self.raw_data_fpath}')
+        print(f'Radiometric Video: {self.autonorm_fpath}')
         print(f'Radiometric Metadata: {self.metadata_fpath}')
         print(f'Viewable Video: {self.viewable_video_fpath}')
 
@@ -269,6 +367,8 @@ class BosonCapture(Capture):
             'width': self.width,
             'height': self.height,
             'n_frames': self.n_frames,
+            'min': self.GLOBAL_MIN,
+            'max': self.GLOBAL_MAX,
             'dtype': 'uint16',
         }    
 
