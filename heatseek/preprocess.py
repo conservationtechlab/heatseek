@@ -86,15 +86,20 @@ def reduce_background(in_path: str, out_path: str, yaml_path: str = "heatseek/co
     print(f"[video_preproc] saved → {out_path}")
 
 
-def reduce_background_radiometric(in_path: str, out_path: str, yaml_path: str = "heatseek/config/preproc_config.yaml"):
+def reduce_background_radiometric(in_path: str,
+                                  out_path: str, 
+                                  meta_path: str,
+                                  yaml_path: str = "heatseek/config/preproc_config.yaml"):
     """
     Optical flow background reduction using parameters from a YAML config on radiometric data.
 
     Args:
         in_path (str): Path to input video file.
         out_path (str): Path to save processed video.
+        meta_path (str): Path to radiometric metadata.
         yaml_path (str): Path to YAML configuration file containing motion_thresh and flow_params.
     """
+    
     with open(yaml_path, 'r') as f:
         config = yaml.safe_load(f)
 
@@ -108,16 +113,20 @@ def reduce_background_radiometric(in_path: str, out_path: str, yaml_path: str = 
     poly_sigma = flow_cfg.get('poly_sigma', 1.2)
     flags = flow_cfg.get('flags', 0)
 
+    with open(meta_path, 'r') as f:
+        meta = yaml.safe_load(f)
+        
     fps = 30
-    width = 320
-    height = 256
+    width = meta.get('width', 320)
+    height = meta.get('height', 256)
+    n_frames = meta.get('n_frames', 600)
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
     
     mm = np.memmap(in_path,
                    dtype=np.uint16,
                    mode='r',
-                   shape=(300, 256, 320)) # TODO remove hardcoding
+                   shape=(n_frames, height, width)) # TODO remove hardcoding
     global_min = np.min(mm)
     global_max = np.max(mm)
     prev_frame = mm[0]

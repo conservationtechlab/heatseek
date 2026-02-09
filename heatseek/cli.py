@@ -62,6 +62,7 @@ def main():
     pre_r = subs.add_parser("preprocess_radiometric", help="Reduce background in a radiometric video")
     pre_r.add_argument("--input", required=True, help="Input video path")
     pre_r.add_argument("--output", required=True, help="Output video path")
+    pre_r.add_argument("--metadata", required=True, help="Radiometic video metadata path")
     pre_r.add_argument(
         "--config",
         default="heatseek/config/preproc_config.yaml",
@@ -123,7 +124,7 @@ def main():
         reduce_background(args.input, args.output, args.config)
 
     elif args.cmd == "preprocess_radiometric":
-        reduce_background_radiometric(args.input, args.output, args.config)
+        reduce_background_radiometric(args.input, args.output, args.metadata, args.config)
 
     elif args.cmd == "track":
         detect_and_track(args.input, args.output, args.weights)

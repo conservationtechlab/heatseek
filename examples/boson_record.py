@@ -20,7 +20,8 @@ for 10s.
 """
 
 import argparse
-from time import sleep
+from time import time, sleep
+import keyboard
 from heatseek.boson_capture import BosonCapture
 
 
@@ -73,15 +74,35 @@ def main():
                         help='time in s to record')
     args = parser.parse_args()
 
+
+    
     camera = BosonCapture(serial_port=args.serial_port,
                           video_port=args.video_port,
                           sdkpath=args.bosonsdk_path)
     camera.start_recording(autonorm=args.autonorm_path,
                            globalnorm=args.globalnorm_path,
                            meta=args.metadata_path)
-    sleep(args.recording_time or 10)
-    camera.stop_recording()
-    camera.release_camera()
+
+
+    max_recording_time = args.recording_time or 10800 # 3hrs default
+    start_time = time()
+    
+    try:
+        print('Recording ... Press CTRL+C to stop manually')
+        while True:
+            elapsed = time() - start_time
+            if elapsed >= max_recording_time:
+                print('Reached max recording time. Stopping recording')
+                break
+            sleep(.01)
+
+    except KeyboardInterrupt:
+        print('Stopping Recording')
+
+    finally:
+    # sleep(args.recording_time or 10)
+        camera.stop_recording()
+        camera.release_camera()
 
 
 if __name__ == '__main__':
