@@ -21,7 +21,6 @@ for 10s.
 
 import argparse
 from time import time, sleep
-import keyboard
 from heatseek.boson_capture import BosonCapture
 
 
@@ -37,14 +36,14 @@ def main():
         --video_port (str, opt): Path to video port.
             Default is \dev\video0.
         --autonorm_path (str, opt): Filepath to save
-            radiometric output (.mp4)
+            normalized viewable video (.mp4)
         --globalnorm_path (str, opt): Filepath to save
-            normalized video (.mp4)
-        --metadata_path (str, opt): Filepath to save 
+            normalized radiometric (.mp4)
+        --metadata_path (str, opt): Filepath to save
             radiometric metadata
         --bosonsdk_path (str, opt) Filepath to boson sdk folder
         --recording_time (int, opt): Duration of recording in seconds.
-            Default is 10s.
+            Default is 3hrs
 
     Returns:
         None
@@ -59,10 +58,10 @@ def main():
                         help='path to video port. Default is /dev/video0')
     parser.add_argument('--autonorm_path',
                         type=str,
-                        help='filepath to save raw radiometric output')
+                        help='filepath to save noramlized viewable video')
     parser.add_argument('--globalnorm_path',
                         type=str,
-                        help='filepath to save normalized video output')
+                        help='filepath to save normalized radiometric output')
     parser.add_argument('--metadata_path',
                         type=str,
                         help='filepath to save radiometric metadata')
@@ -74,19 +73,17 @@ def main():
                         help='time in s to record')
     args = parser.parse_args()
 
-
-    
+    # Camera Setup
     camera = BosonCapture(serial_port=args.serial_port,
                           video_port=args.video_port,
                           sdkpath=args.bosonsdk_path)
     camera.start_recording(autonorm=args.autonorm_path,
                            globalnorm=args.globalnorm_path,
                            meta=args.metadata_path)
-
-
-    max_recording_time = args.recording_time or 10800 # 3hrs default
+    max_recording_time = args.recording_time or 10800  # 3hrs default
     start_time = time()
-    
+
+    # Recording Loop
     try:
         print('Recording ... Press CTRL+C to stop manually')
         while True:
@@ -100,7 +97,6 @@ def main():
         print('Stopping Recording')
 
     finally:
-    # sleep(args.recording_time or 10)
         camera.stop_recording()
         camera.release_camera()
 

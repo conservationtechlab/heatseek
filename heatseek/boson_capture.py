@@ -10,15 +10,14 @@ frames, and creating a viewable mp4 video with a color map.
 import threading
 import sys
 import os
-import yaml
 from time import sleep
-from datetime import datetime
+import subprocess
 from importlib import import_module
+from datetime import datetime
+import yaml
 import numpy as np
 import cv2
 from heatseek.capture import Capture
-
-import subprocess
 
 
 class BosonCapture(Capture):
@@ -50,7 +49,7 @@ class BosonCapture(Capture):
         parameters
 
         Args:
-            serial_port (str, opt): path to serial port. 
+            serial_port (str, opt): path to serial port.
                 Defaults to \dev\ttyACM0.
             video_port (str, opt): path to video port.
                 Defaults to \dev\video0.
@@ -147,10 +146,10 @@ class BosonCapture(Capture):
         """Begin thread for continuous recording
 
         Args:
-            autonorm (str, opt): filepath to save frame by frame noramlized video.
-                Defaults to autonorm_{timestamp}.mp4
-            globalnorm (str, opt): filepath to save globally normalized mp4 video.
-                Defaults to globalnorm_{timestamp}.mp4
+            autonorm (str, opt): filepath to save frame by frame
+                noramlized video. Defaults to autonorm_{timestamp}.mp4
+            globalnorm (str, opt): filepath to save globally
+                normalized mp4 video. Defaults to globalnorm_{timestamp}.mp4
         """
 
         if self.recording:
@@ -158,7 +157,7 @@ class BosonCapture(Capture):
             return
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+
         self.autonorm_fpath = autonorm or f'autonorm_{timestamp}.mp4'
         self.globalnorm_fpath = globalnorm or f'globalnorm_{timestamp}.mkv'
         self.metadata_fpath = meta or f'metadata_{timestamp}.yaml'
@@ -171,10 +170,10 @@ class BosonCapture(Capture):
         print('Staring Recording...')
 
     def _get_center_temp(self, frame):
+        """Internal method: returns pixel value of frame center
+        """
 
         center = frame[int(self.height/2), int(self.width/2)]
-        #center_k = center/100
-        #center_f = (center_k - 273.15) * (9/5) + 32
         return center
 
     def _record_loop(self):
@@ -191,14 +190,14 @@ class BosonCapture(Capture):
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
         cap.set(cv2.CAP_PROP_FOURCC,
-                     cv2.VideoWriter_fourcc('Y', '1', '6', ' '))                     
-        mpv4_fourcc = cv2.VideoWriter_fourcc(*'mp4v')        
+                cv2.VideoWriter_fourcc('Y', '1', '6', ' '))
+        mpv4_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         autonorm_writer = cv2.VideoWriter(self.autonorm_fpath,
                                           mpv4_fourcc,
                                           60,
                                           (self.width, self.height))
 
-        ## MKV Setup
+        # MKV Setup
         proc = subprocess.Popen([
             "ffmpeg", "-y",
             "-f", "rawvideo",
@@ -215,7 +214,7 @@ class BosonCapture(Capture):
                                 # dtype=np.uint16,
                                 # mode='w+',
                                 # shape=(600, self.height, self.width))
-        # frame_index = 0
+
         self.n_frames = 0
 
         try:
@@ -224,22 +223,18 @@ class BosonCapture(Capture):
                 if not ret:
                     print('Frame grab failed. Stopping Recording')
                     break
-                    
+
                 # Autonorm Frame (MP4)
                 frame_8bit_autonorm = cv2.normalize(frame, None, 0, 255,
-                                    norm_type=cv2.NORM_MINMAX).astype(np.uint8)
+                    norm_type=cv2.NORM_MINMAX).astype(np.uint8)
                 frame_color = cv2.applyColorMap(frame_8bit_autonorm,
-                                    cv2.COLORMAP_INFERNO).astype(np.uint8)
+                    cv2.COLORMAP_INFERNO).astype(np.uint8)
                 autonorm_writer.write(frame_color)
 
                 # Globalnorm Frame (MKV)
-                frame_32bit = frame.astype(np.float32)                
+                frame_32bit = frame.astype(np.float32)
                 frame_8bit_globalnorm = (255.0 * (frame_32bit-self.GLOBAL_MIN)/(self.GLOBAL_MAX-self.GLOBAL_MIN)).astype(np.uint8)
                 proc.stdin.write(frame_8bit_globalnorm.tobytes())
-
-
-                # if frame_index % 60 ==0:
-                    # print(self._get_center_temp(frame))
 
                 # Raw Video
                 # if frame_index < self.raw_mm.shape[0]:
@@ -252,17 +247,15 @@ class BosonCapture(Capture):
                     # self.raw_mm.flush()
 
                 self.n_frames += 1
-                    
 
         finally:
             cap.release()
             autonorm_writer.release()
 
             self._finalize_recording()
-            
+
             proc.stdin.close()
             proc.wait()
-
 
     def stop_recording(self):
         """Stop ongoing recording session.
@@ -290,14 +283,14 @@ class BosonCapture(Capture):
         """
 
         self.recording = False
-# 
+
         # if self.raw_mm is not None:
             # self.raw_mm.flush()
             # del self.raw_mm
             # self.raw_mm = None
 
         self._write_radiometric_metadata()
-        
+
         print('Recording Successfully Completed')
         print(f'Viewable Video: {self.autonorm_fpath}')
         print(f'Globally normalized Video: {self.globalnorm_fpath}')
@@ -314,11 +307,10 @@ class BosonCapture(Capture):
             'min': self.GLOBAL_MIN,
             'max': self.GLOBAL_MAX,
             'dtype': 'uint16',
-        }    
+        }
 
-        with open(self.metadata_fpath, "w") as f:
+        with open(self.metadata_fpath, "w", encoding="utf-8") as f:
             yaml.safe_dump(meta, f, sort_keys=False)
-        
 
     def release_camera(self):
         """Release camera resources.
