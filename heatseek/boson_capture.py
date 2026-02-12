@@ -11,7 +11,10 @@ import threading
 import sys
 import os
 from time import sleep
+import subprocess
 from importlib import import_module
+from datetime import datetime
+import yaml
 import numpy as np
 import cv2
 from heatseek.capture import Capture
@@ -46,7 +49,7 @@ class BosonCapture(Capture):
         parameters
 
         Args:
-            serial_port (str, opt): path to serial port. 
+            serial_port (str, opt): path to serial port.
                 Defaults to \dev\ttyACM0.
             video_port (str, opt): path to video port.
                 Defaults to \dev\video0.
@@ -60,8 +63,12 @@ class BosonCapture(Capture):
         self.recording = False
         self.height = 256
         self.width = 320
-        self.raw_data_fpath = None
-        self.viewable_video_fpath = None
+        self.GLOBAL_MIN = 28000
+        self.GLOBAL_MAX = 32000
+        self.n_frames = 0
+        self.autonorm_fpath = None
+        self.globalnorm_fpath = None
+        self.metadata_fpath = None
         self.recording_thread = None
         self.raw_mm = None
 
@@ -135,22 +142,25 @@ class BosonCapture(Capture):
 
         print('Taking Image- PLACEHOLDER')
 
-    def start_recording(self, raw=None, norm=None):
+    def start_recording(self, autonorm=None, globalnorm=None, meta=None):
         """Begin thread for continuous recording
 
         Args:
-            raw (str, opt): filepath to save raw radiometric data.
-                Defaults to output.npy
-            norm (str, opt): filepath to save normalized mp4 video.
-                Defaults to output.mp4
+            autonorm (str, opt): filepath to save frame by frame
+                noramlized video. Defaults to autonorm_{timestamp}.mp4
+            globalnorm (str, opt): filepath to save globally
+                normalized mp4 video. Defaults to globalnorm_{timestamp}.mp4
         """
 
         if self.recording:
             print('Recording in Progress!')
             return
 
-        self.raw_data_fpath = raw or 'output.npy'
-        self.viewable_video_fpath = norm or 'output.mp4'
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        self.autonorm_fpath = autonorm or f'autonorm_{timestamp}.mp4'
+        self.globalnorm_fpath = globalnorm or f'globalnorm_{timestamp}.mkv'
+        self.metadata_fpath = meta or f'metadata_{timestamp}.yaml'
 
         self.recording = True
         self.recording_thread = threading.Thread(
@@ -158,6 +168,13 @@ class BosonCapture(Capture):
             )
         self.recording_thread.start()
         print('Staring Recording...')
+
+    def _get_center_temp(self, frame):
+        """Internal method: returns pixel value of frame center
+        """
+
+        center = frame[int(self.height/2), int(self.width/2)]
+        return center
 
     def _record_loop(self):
         """Internal method: recording loop to continuously capture frames
@@ -167,25 +184,38 @@ class BosonCapture(Capture):
         memory is full
         """
 
-        # video settings
+        # MP4 Setup
         cap = cv2.VideoCapture(self.video_port, cv2.CAP_V4L2)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
         cap.set(cv2.CAP_PROP_FOURCC,
-                     cv2.VideoWriter_fourcc('Y', '1', '6', ' '))
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        writer = cv2.VideoWriter(self.viewable_video_fpath,
-                                 fourcc,
-                                 60,
-                                 (self.width, self.height))
+                cv2.VideoWriter_fourcc('Y', '1', '6', ' '))
+        mpv4_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        autonorm_writer = cv2.VideoWriter(self.autonorm_fpath,
+                                          mpv4_fourcc,
+                                          60,
+                                          (self.width, self.height))
+
+        # MKV Setup
+        proc = subprocess.Popen([
+            "ffmpeg", "-y",
+            "-f", "rawvideo",
+            "-pixel_format", "gray",
+            "-video_size", f"{self.width}x{self.height}",
+            "-framerate", "60",
+            "-i", "-",
+            "-c:v", "libx264",
+            self.globalnorm_fpath
+        ], stdin=subprocess.PIPE)
 
         # raw video setup
-        self.raw_mm = np.memmap(self.raw_data_fpath,
-                                dtype=np.uint16,
-                                mode='w+',
-                                shape=(50000, self.height, self.width))
-        frame_index = 0
+        # self.raw_mm = np.memmap('raw_test.raw',
+                                # dtype=np.uint16,
+                                # mode='w+',
+                                # shape=(600, self.height, self.width))
+
+        self.n_frames = 0
 
         try:
             while self.recording:
@@ -194,23 +224,38 @@ class BosonCapture(Capture):
                     print('Frame grab failed. Stopping Recording')
                     break
 
-                # Viewable frame
-                frame_8bit = cv2.normalize(frame, None, 0, 255,
-                                norm_type=cv2.NORM_MINMAX).astype(np.uint8)
-                frame_color = cv2.applyColorMap(frame_8bit,
-                                cv2.COLORMAP_INFERNO).astype(np.uint8)
-                writer.write(frame_color)
+                # Autonorm Frame (MP4)
+                frame_8bit_autonorm = cv2.normalize(frame, None, 0, 255,
+                    norm_type=cv2.NORM_MINMAX).astype(np.uint8)
+                frame_color = cv2.applyColorMap(frame_8bit_autonorm,
+                    cv2.COLORMAP_INFERNO).astype(np.uint8)
+                autonorm_writer.write(frame_color)
+
+                # Globalnorm Frame (MKV)
+                frame_32bit = frame.astype(np.float32)
+                frame_8bit_globalnorm = (255.0 * (frame_32bit-self.GLOBAL_MIN)/(self.GLOBAL_MAX-self.GLOBAL_MIN)).astype(np.uint8)
+                proc.stdin.write(frame_8bit_globalnorm.tobytes())
 
                 # Raw Video
-                if frame_index > self.raw_mm.shape[0]:
-                    print('Reached Preallocated Size, Stopping Recording')
-                    break
-                self.raw_mm[frame_index] = frame
-                frame_index += 1
-                self.raw_mm.flush()
+                # if frame_index < self.raw_mm.shape[0]:
+                    # if self.n_frames > self.raw_mm.shape[0]:
+                        # print('Reached Preallocated Size, Stopping Recording')
+                        # break
+                    # self.raw_mm[self.n_frames] = frame
+                    # frame_index += 1
+                    # self.n_frames += 1
+                    # self.raw_mm.flush()
+
+                self.n_frames += 1
 
         finally:
+            cap.release()
+            autonorm_writer.release()
+
             self._finalize_recording()
+
+            proc.stdin.close()
+            proc.wait()
 
     def stop_recording(self):
         """Stop ongoing recording session.
@@ -239,14 +284,33 @@ class BosonCapture(Capture):
 
         self.recording = False
 
-        if self.raw_mm is not None:
-            self.raw_mm.flush()
-            del self.raw_mm
-            self.raw_mm = None
+        # if self.raw_mm is not None:
+            # self.raw_mm.flush()
+            # del self.raw_mm
+            # self.raw_mm = None
+
+        self._write_radiometric_metadata()
 
         print('Recording Successfully Completed')
-        print(f'Radiometric data saved: {self.raw_data_fpath}')
-        print(f'Viewable Video: {self.viewable_video_fpath}')
+        print(f'Viewable Video: {self.autonorm_fpath}')
+        print(f'Globally normalized Video: {self.globalnorm_fpath}')
+        print(f'Radiometric Metadata: {self.metadata_fpath}')
+
+    def _write_radiometric_metadata(self):
+        """Saves out all radiometric video metadata
+        """
+
+        meta = {
+            'width': self.width,
+            'height': self.height,
+            'n_frames': self.n_frames,
+            'min': self.GLOBAL_MIN,
+            'max': self.GLOBAL_MAX,
+            'dtype': 'uint16',
+        }
+
+        with open(self.metadata_fpath, "w", encoding="utf-8") as f:
+            yaml.safe_dump(meta, f, sort_keys=False)
 
     def release_camera(self):
         """Release camera resources.
