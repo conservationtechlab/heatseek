@@ -1,3 +1,4 @@
+import subprocess
 import cv2
 import numpy as np
 from tqdm import tqdm
@@ -99,7 +100,8 @@ def reduce_background_radiometric(in_path: str,
         meta_path (str): Path to radiometric metadata.
         yaml_path (str): Path to YAML configuration file containing motion_thresh and flow_params.
     """
-    
+
+    # Load Config
     with open(yaml_path, 'r') as f:
         config = yaml.safe_load(f)
 
@@ -113,50 +115,74 @@ def reduce_background_radiometric(in_path: str,
     poly_sigma = flow_cfg.get('poly_sigma', 1.2)
     flags = flow_cfg.get('flags', 0)
 
-    with open(meta_path, 'r') as f:
-        meta = yaml.safe_load(f)
-        
-    fps = 30
-    width = meta.get('width', 320)
-    height = meta.get('height', 256)
-    n_frames = meta.get('n_frames', 600)
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
+    # Load Metadata
+    # with open(meta_path, 'r') as f:
+        # meta = yaml.safe_load(f)
+        # 
+    # fps = 60
+    # width = meta.get('width', 320)
+    # height = meta.get('height', 256)
+    # n_frames = meta.get('n_frames', 600)
+    # fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    # out = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
     
-    mm = np.memmap(in_path,
-                   dtype=np.uint16,
-                   mode='r',
-                   shape=(n_frames, height, width)) # TODO remove hardcoding
-    global_min = np.min(mm)
-    global_max = np.max(mm)
-    prev_frame = mm[0]
-    prev_frame = ((prev_frame - global_min)/(global_max - global_min)*255).astype(np.uint8)
-    
-    for i in tqdm(range(299), desc="bg-reduce"):
+    cap = cv2.VideoCapture(in_path)
+    if not cap.isOpened():
+        raise RuntimeError(f'Failed to open video file: {in_path}')
 
-        frame = mm[i+1]
-        frame = ((frame - global_min)/(global_max - global_min)*255).astype(np.uint8)
-          
-        frame_color = cv2.applyColorMap(frame, cv2.COLORMAP_INFERNO)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    # Start FFmpeg process
+    proc = subprocess.Popen([
+        "ffmpeg", "-y",
+        "-f", "rawvideo",
+        "-pixel_format", "bgr24",
+        "-video_size", f"{width}x{height}",
+        "-framerate", f"{int(fps)}",
+        "-i", "-",  # stdin
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",  # standard for h264
+        out_path
+    ], stdin=subprocess.PIPE)
+
+    # Read first frame
+    ret, prev_frame = cap.read()
+    if not ret:
+        raise RuntimeError("Failed to read the first frame from the video.")
+
+    prev_gray = prev_frame[:,:,0]
+
+    for _ in tqdm(range(n_frames - 1), desc="bg-reduce"):
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        gray = frame[:,:,0]
 
         flow = cv2.calcOpticalFlowFarneback(
-            prev_frame, frame, None,
+            prev_gray, gray, None,
             pyr_scale, levels, winsize,
             iterations, poly_n, poly_sigma, flags
         )
 
         mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
-
         mask = (mag > motion_thresh).astype(np.uint8) * 255
         dist = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
         mask = (dist > 1.5).astype(np.uint8) * 255
         mask_color = cv2.merge([mask, mask, mask])
 
-        fg = cv2.bitwise_and(frame_color, mask_color)
-        out.write(fg)
+        fg = cv2.bitwise_and(frame, mask_color)
 
-        prev_frame = frame
+        # Write frame to FFmpeg stdin
+        proc.stdin.write(fg.tobytes())
 
-    out.release()
-    
-    print(f"[video_preproc] saved → {out_path}")
+        prev_gray = gray
+
+    cap.release()
+    proc.stdin.close()
+    proc.wait()
+
+    print(f'video saved - {out_path}')
