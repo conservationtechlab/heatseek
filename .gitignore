@@ -71,3 +71,22 @@ coverage.xml
 # System files
 .DS_Store
 Thumbs.db
+
+# Videos and Images
+*.jpg
+*.png
+*.mkv
+*.mp4
+
+# Data Folders
+heatseek/counting/clips
+heatseek/counting/detections_413_full_thermal_vid
+heatseek/counting/detections_414_full_thermal_vid
+heatseek/counting/detections
+heatseek/counting/detections_120b
+heatseek/counting/detections_30b
+heatseek/counting/detections_60b
+heatseek/counting/detections_synthetic
+heatseek/counting/detections_test
+heatseek/outputs
+heatseek/counting/verify_detections.ipynb

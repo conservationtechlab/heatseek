@@ -1,0 +1,10 @@
+'video_path' : ''
+'output_folder': detections
+'threshold' : 10
+'min_val_radiometric' : 28000
+'max_val_radiometric' : 32000
+'radiometric' : False
+'speed' : 9
+'focal_length' : 0.019
+'pixel_pitch' : 0.000017
+'depth' : 45
