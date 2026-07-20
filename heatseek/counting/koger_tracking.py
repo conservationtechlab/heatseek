@@ -46,6 +46,7 @@ def update_unmatched_track(track, debug=False):
     '''
     
     track['track'].append(track['track'][-1])
+    # track['track'].append(predicted_position(track))
     track['pos_index'].append(np.nan)
     if 'size' in track:
         track['size'].append(np.nan)
@@ -90,7 +91,8 @@ def update_matched_track(track, frame_index, new_position,
     
     if track['noise'] > 0:
         # Maybe this should go to 0 after found
-        track['noise'] -= 1
+        # track['noise'] -= 1
+        track['noise'] = 0
     if 'size' in track:
         track['size'].append(size)
     if 'rects' in track:
@@ -147,8 +149,8 @@ def filter_tracks_without_new_points(track_list, distance, row_ind,
     """ Deal with instances where some tracks don't have new points.
     
     This happens when there isn't a new point close enough to existing tracks
-    or when there are fewwer new points than existing tracks. When it is the
-    later, the longer track takes presedence.
+    or when there are fewer new points than existing tracks. When it is the
+    latter, the longer track takes presedence.
     
     Args:
         track_list (list): all tracks
@@ -464,6 +466,23 @@ def finalize_tracks(track_list):
             track['contour'] = track['contour'][:last_real_index]
         track_list[track_ind] = track
     return track_list
+
+# def predicted_position(track):
+#     """Constant-velocity forward prediction from the last two real positions."""
+#     t = track['track']
+#     if len(t) < 2:
+#         return np.asarray(t[-1], dtype=float)
+#     v = np.asarray(t[-1], dtype=float) - np.asarray(t[-2], dtype=float)
+#     return np.asarray(t[-1], dtype=float) + v
+
+# def predicted_position(track, k=3):
+#     """Constant-velocity prediction using mean velocity over the last k steps."""
+#     t = np.asarray(track['track'], dtype=float)
+#     if len(t) < 2:
+#         return t[-1]
+#     n = min(k, len(t) - 1)
+#     v = (t[-1] - t[-1 - n]) / n      # averaged over n frames — jitter divides by n
+#     return t[-1] + v
         
 #returns an array of shape (len(active_list), positions1.shape[0])
 #row is distance from every new point to last point in row's active list
@@ -481,6 +500,7 @@ def calculate_distances(new_positions, track_list, active_list):
     """
     #positions from last step
     old_positions = [track_list[track_num]['track'][-1] for track_num in active_list]
+    # old_positions = [predicted_position(track_list[n]) for n in active_list]
     old_positions = np.stack(old_positions)
 
     x_diff = (np.expand_dims(new_positions[:, 1], 0) 
@@ -502,7 +522,7 @@ def calculate_active_list(track_list, max_unseen_time, frame_num, debug=False):
                 track_list[track_num]['debug'].append('{} no longer active'.format(frame_num))
     return active_list
 
-def calculate_max_distance(track_list, active_list, max_distance, 
+def calculate_max_distance(track_list, active_list, max_distance_threshold, 
                            max_distance_noise, min_distance, use_size=False,
                            size_dict=None, min_distance_big=None):
     
@@ -518,10 +538,10 @@ def calculate_max_distance(track_list, active_list, max_distance,
     Args:
         track_list: list of all tracks
         active_list: list of tracks that could be added to
-        max_distance: upper distance threshold
+        max_distance_threshold: upper distance threshold
         max_distance_noise: upper distance threshold tracks with noise values
             above 0
-        min_distance: lowwer distance threshold
+        min_distance: lower distance threshold
         use_size: if objects have assosiated size and want to use that for 
             additional rules
         size_dict: information about point sizes
@@ -530,25 +550,41 @@ def calculate_max_distance(track_list, active_list, max_distance,
     
     # only check distances to established tracks defined by a noise value of 
     # 0 or below
-    positions0 = [track_list[active_list[0]]['track'][-1]]
-    if len(active_list) > 1:
-        for track_num in active_list[1:]:
-            if track_list[track_num]['noise'] <= 0:
-                positions0.append(track_list[track_num]['track'][-1])
-    positions0 = np.stack(positions0)
+    #original code
+    # positions0 = [track_list[active_list[0]]['track'][-1]]
+    # if len(active_list) > 1:
+    #     for track_num in active_list[1:]:
+    #         if track_list[track_num]['noise'] <= 0:
+    #             positions0.append(track_list[track_num]['track'][-1])
+    # positions0 = np.stack(positions0)
+
+    #changed (hopefully more robust) code
+    positions0 = [track_list[t]['track'][-1]
+                for t in active_list
+                if track_list[t]['noise'] <= 0]
+
+    if positions0:
+        positions0 = np.stack(positions0)
+        distance = calculate_distances(positions0, track_list, active_list)
+        distance[np.where(distance == 0)] = float("inf")
+        closest_neighbor = np.clip(np.min(distance, 1) * 0.45,
+                                min_distance, max_distance_threshold)
+    else:
+        # no confirmed neighbors -> no crowding constraint
+        closest_neighbor = np.full(len(active_list), float(max_distance_threshold))
                 
-    distance = calculate_distances(positions0, track_list, active_list)
-    # closest point will be itself, so make zero distance 
-    # bigger than other distances
-    distance[np.where(distance == 0)] = float("inf")
+    # distance = calculate_distances(positions0, track_list, active_list)
+    # # closest point will be itself, so make zero distance 
+    # # bigger than other distances
+    # distance[np.where(distance == 0)] = float("inf")
     # HYPER PARAMETER
-    # Don't connect to points that are closer to other points
-    closest_neighbor = np.min(distance, 1) * .45
-    # Even if neighbors are all far away, have a max threshold to look for new points 
-    closest_neighbor[np.where(closest_neighbor > max_distance)] = max_distance
-    # However, even if neighbors are very close, should be able to connect
-    # to points within radius of min distance
-    closest_neighbor[np.where(closest_neighbor < min_distance)] = min_distance
+    # # Don't connect to points that are closer to other points
+    # closest_neighbor = np.min(distance, 1) * .45
+    # # Even if neighbors are all far away, have a max threshold to look for new points 
+    # closest_neighbor[np.where(closest_neighbor > max_distance_threshold)] = max_distance_threshold
+    # # However, even if neighbors are very close, should be able to connect
+    # # to points within radius of min distance
+    # closest_neighbor[np.where(closest_neighbor < min_distance)] = min_distance
     for active_ind, track_num in enumerate(active_list):
         track_list[track_num]['max_distance'] = closest_neighbor[active_ind] 
         if track_list[track_num]['noise'] > 0:
@@ -559,20 +595,22 @@ def calculate_max_distance(track_list, active_list, max_distance,
             # Only is objects have related size (added for bats)
             size = track_list[track_num]['size'][-1]
             max_distance = track_list[track_num]['max_distance']
-            if size < 30:
-                max_distance = np.min([15, max_distance]) 
-            elif size < 120:
-                max_distance = np.min([20, max_distance])
-            #use the below conditions if these sizes dont work out
-            # if size < 10:
-            #     max_distance = np.min([15, max_distance])
-            # elif size < 40:
+            # if size < 30:
+            #     max_distance = np.min([15, max_distance]) 
+            #     # max_distance = np.min([45, max_distance])
+            # elif size < 120:
             #     max_distance = np.min([20, max_distance])
-            elif not np.isnan(size):
-                if min_distance_big:
-                    # Even is points near by, give room to look around
-                    max_distance = np.max([min_distance_big, max_distance])
+            # #use the below conditions if these sizes dont work out
+            # # if size < 10:
+            # #     max_distance = np.min([15, max_distance])
+            # # elif size < 40:
+            # #     max_distance = np.min([20, max_distance])
+            # elif not np.isnan(size):
+            #     if min_distance_big:
+            #         # Even is points near by, give room to look around
+            #         max_distance = np.max([min_distance_big, max_distance])
             
+            max_distance = np.max([min_distance, max_distance])
             track_list[track_num]['max_distance'] = max_distance
     return track_list
 

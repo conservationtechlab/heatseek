@@ -2,7 +2,7 @@ import numpy as np
 
 class CountLine():
     ''' 
-    Counts everytime a bat crosses a line defined in space (y = constant)
+    Counts everytime a bat crosses a line defined in space (y = constant or x = constant)
     '''
     
     def __init__(self, line_value, line_dim=1, total_frames=None):
@@ -25,6 +25,12 @@ class CountLine():
         self.bat_ids_crossed = []
         # What frames did crosses occur
         self.frame_cross = []
+
+    def _crossing_frame(self, track, forward):
+        """First frame index where the bat is on the far side of the line."""
+        coords = track['track'][:, self.line_dim]
+        beyond = coords <= self.line_value if forward else coords >= self.line_value
+        return int(np.argmax(beyond)) + track['first_frame']
         
     def is_crossing(self, track, track_ind):
         '''
@@ -42,8 +48,9 @@ class CountLine():
         if track['track'][0, self.line_dim] >= self.line_value:
             # last frame was below line
             if track['track'][-1, self.line_dim] <= self.line_value:
-                frame_num = (np.argmin(track['track'][-1, self.line_dim] <= self.line_value)
-                             + track['first_frame'])
+                # frame_num = (np.argmin(track['track'][-1, self.line_dim] <= self.line_value)
+                #              + track['first_frame'])
+                frame_num = self._crossing_frame(track, forward=True)
                 # this frame above or on line
                 # So bat has crossed line
                 if self.total_frames:
@@ -61,8 +68,9 @@ class CountLine():
             if track['track'][-1, self.line_dim] >= self.line_value:
                 # this frame below or on line
                 # So bat has crossed line coming back
-                frame_num = (np.argmin(track['track'][-1, self.line_dim] >= self.line_value)
-                             + track['first_frame'])
+                # frame_num = (np.argmin(track['track'][-1, self.line_dim] >= self.line_value)
+                #              + track['first_frame'])
+                frame_num = self._crossing_frame(track, forward=False)
                 if self.total_frames:
                     self.num_crossing[frame_num] -= 1
                     self.backward[frame_num] += 1
@@ -70,3 +78,4 @@ class CountLine():
                     self.frame_cross.append(frame_num)
                 return (-1, frame_num)
         return (0, None) 
+    

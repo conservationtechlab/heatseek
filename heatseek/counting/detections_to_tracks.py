@@ -1,11 +1,15 @@
 import numpy as np
 import os
 import glob
-import bat_functions as kbf
+import heatseek.counting.bat_functions as kbf
 from multiprocessing import Pool
 import argparse
+from collections import defaultdict
+import cv2
+from pathlib import Path
+import yaml
 
-def track(camera_dict):
+def track(camera_dict, max_distance_threshold, min_distance_threshold, max_distance_threshold_noise, max_unseen_time):
     """
     Run multi-object tracking on precomputed detection data for a single camera.
 
@@ -23,6 +27,12 @@ def track(camera_dict):
               precomputed detection files (contours, centers, sizes).
             - 'first_frame' (int): Index of the first frame to track.
             - 'max_frame' (int): Index of the last frame to track (inclusive).
+        max_distance_threshold (float): Maximum distance threshold for track
+            association. Tracks with detections farther apart than this threshold
+            will not be linked together.
+        min_distance_threshold (float): Minimum distance threshold for track
+            association. Tracks with detections closer than this threshold may be
+            merged or filtered out, depending on the tracking algorithm's logic.
 
     Output:
         Writes a raw tracks file to:
@@ -39,18 +49,21 @@ def track(camera_dict):
     contours_files = sorted(
         glob.glob(os.path.join(camera_folder, 'contours-compressed-*.npy'))
     )
+
     if contours_files:
         contours_files = contours_files[1:]
         centers = np.load(os.path.join(camera_folder, 'centers.npy'), allow_pickle=True)
         sizes = np.load(os.path.join(camera_folder, 'size.npy'), allow_pickle=True)
         tracks_file = os.path.join(camera_folder, f'first_frame_{first_frame}_max_val_{max_frame}_raw_tracks.npy')
-        raw_tracks = kbf.find_tracks(first_frame, centers, contours_files=contours_files,
+        raw_tracks = kbf.find_tracks(first_frame, centers, contours_files=contours_files, 
                                      sizes_list=sizes, tracks_file=tracks_file,
-                                     max_frame=max_frame)
+                                     max_frame=max_frame, max_distance_threshold=max_distance_threshold, 
+                                     min_distance_threshold=min_distance_threshold, 
+                                     max_distance_threshold_noise=max_distance_threshold_noise, max_unseen_time=max_unseen_time)
     else:
         print("Missing contour files.")
 
-def build_camera_dicts(output_folder, num_groups=10, fps=60, overlap_seconds=15):
+def build_camera_dicts(output_folder, num_groups=10, fps=30, overlap_seconds=10):
     """
     Divide a video's detection data into overlapping frame groups and return
     a list of tracking job descriptors for any groups not yet processed.
@@ -72,7 +85,7 @@ def build_camera_dicts(output_folder, num_groups=10, fps=60, overlap_seconds=15)
         fps (int): Frames per second of the source video, used to convert
             overlap_seconds to a frame count. Defaults to 60.
         overlap_seconds (int or float): Seconds of overlap between adjacent
-            segments. Defaults to 15.
+            segments. Defaults to 10.
 
     Returns:
         list[dict]: One dict per unprocessed segment, each containing:
@@ -84,6 +97,12 @@ def build_camera_dicts(output_folder, num_groups=10, fps=60, overlap_seconds=15)
     """
     centers_file = os.path.join(output_folder, 'centers.npy')
     centers = np.load(centers_file, allow_pickle=True)
+
+    if num_groups <= 1 or len(centers) <= fps * overlap_seconds:
+        return [{'camera_folder': output_folder,
+                 'first_frame': 0,
+                 'max_frame': None}]
+
     
     overlap_frames = int(fps * overlap_seconds)
     camera_dicts = []
@@ -166,6 +185,7 @@ def combine_overlapping_tracks(output_folder, first_group=0, last_group=None, sa
                 all_tracks.append(track)
 
     all_tracks_file = os.path.join(output_folder, 'raw_tracks.npy')
+    
     if save:
         np.save(all_tracks_file, all_tracks)
         print(f'Saved {len(all_tracks)} tracks to {all_tracks_file}')
@@ -189,7 +209,8 @@ def combine_tracks(output_folder):
     if not os.path.exists(os.path.join(output_folder, 'raw_tracks.npy')):
         combine_overlapping_tracks(output_folder, save=True)
 
-def run_tracking(output_folder, processes=5):
+def run_tracking(output_folder, max_distance_threshold, min_distance_threshold, processes=5, max_distance_threshold_noise=10, 
+                 max_unseen_frames=1,  num_groups=10, fps=30, overlap_seconds=10):
     """
     Run multi-object tracking across all unprocessed frame segments in parallel.
 
@@ -206,17 +227,143 @@ def run_tracking(output_folder, processes=5):
     Returns:
         None
     """
-    camera_dicts = build_camera_dicts(output_folder)
+    camera_dicts = build_camera_dicts(output_folder, num_groups=num_groups, fps=fps, overlap_seconds=overlap_seconds)
     print(f'Tracking {len(camera_dicts)} groups')
+    args = [(d, max_distance_threshold, min_distance_threshold, max_distance_threshold_noise, max_unseen_frames) for d in camera_dicts]
+
     with Pool(processes=processes) as pool:
-        pool.map(track, camera_dicts)
+        pool.starmap(track, args)
+
+def make_palette(n):
+    """One visually distinct BGR color per track, evenly spaced in hue."""
+    colors = []
+
+    for i in range(max(n, 1)):
+        hue = int(179 * i / max(n, 1))
+        hsv = np.uint8([[[hue, 220, 255]]])
+        bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)[0][0]
+        colors.append((int(bgr[0]), int(bgr[1]), int(bgr[2])))
+
+    return colors
+
+
+def build_frame_lookup(all_tracks, lookback=4):
+    """Map absolute frame index -> list of per-object draw records.
+
+    Each record: (x, y, track_id, is_coasting, dx, dy)
+      - position is track['track'][i], coordinate order (x, y)
+      - frame for row i is track['first_frame'] + i (arrays are dense)
+      - is_coasting: True when pos_index[i] is nan (tracker guessed this frame)
+      - (dx, dy): instantaneous heading from row (i - lookback) to row i
+    """
+    per_frame = defaultdict(list)
+
+    for track_id, tr in enumerate(all_tracks):
+        positions = np.asarray(tr['track'], dtype=float)   # (N, 2), (x, y)
+        pos_index = np.asarray(tr['pos_index'], dtype=float)  # nan on coasting frames
+        first = int(tr['first_frame'])
+        n = positions.shape[0]
+
+        for i in range(n):
+            x, y = positions[i]
+            is_coasting = bool(np.isnan(pos_index[i]))
+            j = max(0, i - lookback)
+            dx = positions[i, 0] - positions[j, 0]
+            dy = positions[i, 1] - positions[j, 1]
+            per_frame[first + i].append((x, y, track_id, is_coasting, dx, dy))
+
+    return per_frame
+
+
+def _fade(color, factor=0.45):
+    """Blend a BGR color toward mid-gray to de-emphasize coasting frames."""
+    gray = 110
+    return tuple(int(c * factor + gray * (1 - factor)) for c in color)
+
+def create_overlay_video(input_video_path, output_video_path, all_tracks,
+                         lookback=4, min_arrow_len=1.5, arrow_scale=2.5,
+                         dot_radius=4, min_track_length=1):
+    if min_track_length > 1:
+        all_tracks = [t for t in all_tracks
+                      if np.asarray(t['track']).shape[0] >= min_track_length]
+
+    palette = make_palette(len(all_tracks))
+    per_frame = build_frame_lookup(all_tracks, lookback=lookback)
+
+    cap = cv2.VideoCapture(input_video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 60.0
+    out = None
+    frame_idx = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        if frame.dtype != np.uint8:
+            frame = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        if frame.ndim == 2:
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+        frame = np.ascontiguousarray(frame)
+
+        if out is None:
+            h, w = frame.shape[:2]
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(output_video_path, fourcc, fps, (w, h))
+            if not out.isOpened():
+                raise RuntimeError(f"VideoWriter failed to open for {output_video_path}")
+
+        for (x, y, track_id, is_coasting, dx, dy) in per_frame.get(frame_idx, []):
+            color = palette[track_id]
+            cx, cy = int(round(x)), int(round(y))
+            if is_coasting:
+                draw_color = _fade(color)
+                cv2.circle(frame, (cx, cy), dot_radius, draw_color, 1)
+                arrow_thick = 1
+            else:
+                draw_color = color
+                cv2.circle(frame, (cx, cy), dot_radius, draw_color, -1)
+                arrow_thick = 2
+
+            mag = (dx * dx + dy * dy) ** 0.5
+            if mag >= min_arrow_len:
+                ex = int(round(x + dx * arrow_scale))
+                ey = int(round(y + dy * arrow_scale))
+                cv2.arrowedLine(frame, (cx, cy), (ex, ey), draw_color,
+                                arrow_thick, tipLength=0.35)
+
+        out.write(frame)
+        frame_idx += 1
+
+    cap.release()
+    if out is not None:
+        out.release()
+    print(f'Overlay video saved to {output_video_path} '
+          f'({len(all_tracks)} tracks, lookback={lookback})')
 
 def main():
     parser = argparse.ArgumentParser(description='Get centers and contours from detections from model inference')
-    parser.add_argument('--output_folder', type=str, help='Path of output folder containing the centers, contours, etc from video inference')
+    parser.add_argument('--config', help='Path to Raw Tracking Config File')
     args = parser.parse_args()
-    run_tracking(args.output_folder)
-    combine_tracks(args.output_folder)
+    config_path = Path(args.config)
+
+    if not config_path.exists():
+        raise FileNotFoundError(f'Config file not found: {config_path}')
+
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    cap = cv2.VideoCapture(config['video_path'])
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    run_tracking(output_folder=config['output_folder'], max_distance_threshold=config['max_distance_threshold'], 
+                 min_distance_threshold=config['min_distance_threshold'], 
+                 max_distance_threshold_noise=config['max_distance_threshold_noise'], 
+                 max_unseen_frames=config['max_unseen_frames'], num_groups=config['num_video_segments'], fps=fps, 
+                 overlap_seconds=config['segment_overlap_seconds'])
+    combine_tracks(config['output_folder'])
+    raw_tracks = np.load(os.path.join(config['output_folder'], 'raw_tracks.npy'), allow_pickle=True)
+    create_overlay_video(config['video_path'], os.path.join(config['output_folder'], 'rt_overlay_video.mp4'), raw_tracks, lookback=1)
 
 if __name__ == '__main__':
     main()

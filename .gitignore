@@ -80,11 +80,13 @@ Thumbs.db
 
 # Data Folders
 heatseek/counting/clips
-heatseek/counting/bg_sub/detections_413_full_thermal_vid
-heatseek/counting/bg_sub/detections_414_full_thermal_vid
-heatseek/counting/dl/detections_413_full_train
-heatseek/counting/dl/detections_414_full_train
-heatseek/counting/dl/detections_413_single_train
-heatseek/counting/dl/detections_414_single_train
-heatseek/counting/dl/models_full_train
-heatseek/counting/dl/models_single_train
+heatseek/counting/detections_413_full_thermal_vid
+heatseek/counting/detections_414_full_thermal_vid
+heatseek/counting/detections
+heatseek/counting/detections_120b
+heatseek/counting/detections_30b
+heatseek/counting/detections_60b
+heatseek/counting/detections_synthetic
+heatseek/counting/detections_test
+heatseek/outputs
+heatseek/counting/verify_detections.ipynb

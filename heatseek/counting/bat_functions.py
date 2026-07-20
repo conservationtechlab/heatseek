@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 from scipy import signal
 from scipy.optimize import linear_sum_assignment
-from CountLine import CountLine
-import koger_tracking as ktf 
+from heatseek.counting.CountLine import CountLine
+import heatseek.counting.koger_tracking as ktf 
 
 def get_blob_info(binary_image, background=None, size_threshold=0):
     
@@ -100,7 +100,8 @@ def add_all_points_as_new_tracks(raw_track_list, positions, contours,
 def find_tracks(first_frame_ind, positions, 
                 contours_files=None, contours_list=None,
                 sizes_list=None, max_frame=None, verbose=True, 
-                tracks_file=None):
+                tracks_file=None, max_distance_threshold=None, min_distance_threshold=None,
+                max_distance_threshold_noise=None, max_unseen_time=None):
     """ Take in positions of all individuals in frames and find tracks.
     
     Args: 
@@ -115,22 +116,12 @@ def find_tracks(first_frame_ind, positions,
     """
     
     raw_track_list = []
-
-    max_distance_threshold = 30
-    max_distance_threshold_noise = 30
-    min_distance_threshold = 0
-    max_unseen_time = 2
-    min_new_track_distance = 3
+    min_new_track_distance = 1
     min_distance_big = 30
-
-#     #Create initial tracks based on the objects in the first frame
-#     raw_track_list = add_all_points_as_new_tracks(
-#         raw_track_list, positions[0], contours_list[0], sizes_list0, noise=0
-#     )
 
     #try to connect points to the next frame
     if max_frame is None:
-        max_frame = len(positions)
+        max_frame = len(positions) #positions = centers
         
     contours_file_ind = 0
     previous_contours_seen = 0
@@ -226,31 +217,6 @@ def find_tracks(first_frame_ind, positions,
                 #connect the dots from one frame to the next
                 
                 row_ind, col_ind = linear_sum_assignment(np.log(distance + 1))
-                
-#                 for active_ind, track_ind in enumerate(active_list):
-#                     if active_ind in row_ind:
-#                         row_count = np.where(row_ind == active_ind)[0]
-#                         raw_track_list[track_ind]['debug'].append(
-#                             '{} dist {},  best {}'.format(
-#                                 frame_ind,
-#                                 distance[row_ind[row_count],
-#                                          col_ind[row_count]],
-#                                 np.min(distance[row_ind[row_count],
-#                                          :])
-#                             )
-#                         )
-#                         best_col = np.argmin(distance[row_ind[row_count],
-#                                          :])
-#                         row_count = np.where(col_ind == best_col)[0]
-#                         raw_track_list[track_ind]['debug'].append(
-#                             '{} row_ind {} col {} dist {} track {}'.format(
-#                             frame_ind, row_ind[row_count],
-#                             col_ind[row_count],
-#                             distance[row_ind[row_count],
-#                                          col_ind[row_count]],
-#                             active_list[row_ind[row_count][0]])
-#                         )
-                        
                 
                 # In casese where there are fewer new points than existing tracks
                 # some tracks won't get new point. Just assign them to 
@@ -355,24 +321,25 @@ def measure_crossing_bats(track_list, frame_height=None, frame_width=None,
     for track_ind, track in enumerate(track_list):
         out_result = None
         across_result = None
+
         if count_out:
             out_result, out_frame_num = out_line.is_crossing(track, track_ind)
+
         if count_across:
             across_result, across_frame_num = across_line.is_crossing(track, track_ind)
+
         if out_result or across_result:
             crossing_track_list.append(track)
-            # result is 1 if forward crossing -1 is backward crossing
+
             if count_out:
-                if out_frame_num:
-                    crossing_track_list[-1]['crossed'] = out_frame_num * out_result
-                else:
-                    crossing_track_list[-1]['crossed'] = 0
+                crossing_track_list[-1]['crossed'] = out_result
+                crossing_track_list[-1]['crossed_frame'] = out_frame_num
             if count_across:
-                if across_frame_num:
-                    crossing_track_list[-1]['across_crossed'] = across_frame_num * across_result
-                else:
-                    crossing_track_list[-1]['across_crossed'] = 0
+                crossing_track_list[-1]['across_crossed'] = across_result
+                crossing_track_list[-1]['across_crossed_frame'] = across_frame_num
+
             track[id] = track_ind
+
             if with_rects:
                 if not 'rects' in track.keys():
                     track['rects'] = get_rects(track)
