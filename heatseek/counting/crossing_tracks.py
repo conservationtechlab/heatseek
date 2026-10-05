@@ -1,9 +1,9 @@
-from heatseek.counting.bat_functions import threshold_short_tracks, measure_crossing_bats
+from bat_functions import threshold_short_tracks, measure_crossing_bats
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import cv2
-from heatseek.counting.detections_to_tracks import make_palette, build_frame_lookup, _fade
+from detections_to_tracks import make_palette, build_frame_lookup, _fade
 from collections import Counter
 from pathlib import Path
 import os
