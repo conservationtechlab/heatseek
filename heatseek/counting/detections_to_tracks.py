@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import glob
-import heatseek.counting.bat_functions as kbf
+import bat_functions as kbf
 from multiprocessing import Pool
 import argparse
 from collections import defaultdict
