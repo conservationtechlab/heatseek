@@ -3,7 +3,7 @@ import cv2
 import logging
 import numpy as np
 import argparse
-import heatseek.counting.bat_functions as bat_functions 
+import bat_functions as bat_functions 
 import time
 import matplotlib.pyplot as plt
 import math
