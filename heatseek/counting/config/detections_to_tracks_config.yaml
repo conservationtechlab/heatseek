@@ -1,0 +1,8 @@
+'video_path' : ''
+'output_folder': detections
+'max_distance_threshold' : 14
+'min_distance_threshold' : 8
+'max_distance_threshold_noise' : 10
+'max_unseen_frames' : 1
+'num_video_segments' : 10
+'segment_overlap_seconds' : 10
