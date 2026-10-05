@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 from scipy import signal
 from scipy.optimize import linear_sum_assignment
-from heatseek.counting.CountLine import CountLine
-import heatseek.counting.koger_tracking as ktf 
+from CountLine import CountLine
+import koger_tracking as ktf 
 
 def get_blob_info(binary_image, background=None, size_threshold=0):
     
